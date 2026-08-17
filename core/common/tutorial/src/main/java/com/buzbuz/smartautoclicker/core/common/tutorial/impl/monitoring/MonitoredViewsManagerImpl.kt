@@ -29,7 +29,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,11 +50,20 @@ internal class MonitoredViewsManagerImpl @Inject constructor(
     private var textMonitoringJob: Job? = null
     private var numberMonitoringJob: Job? = null
 
+    private var isViewMonitoringEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+
+    internal fun setViewMonitoringState(isEnabled: Boolean) {
+        isViewMonitoringEnabled.update { isEnabled }
+    }
+
     override fun attach(
         type: MonitoredViewType,
         monitoredView: View,
         positioningType: ViewPositioningType,
     ) {
+        if (!isViewMonitoringEnabled.value) return
+
         if (!monitoredViews.contains(type)) monitoredViews[type] = ViewMonitor(displayConfigManager)
         monitoredViews[type]?.attachView(monitoredView, positioningType)
     }

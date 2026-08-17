@@ -35,6 +35,7 @@ import com.buzbuz.smartautoclicker.core.common.tutorial.domain.model.state.Tutor
 import com.buzbuz.smartautoclicker.core.common.tutorial.impl.data.TipsStateDataSource
 import com.buzbuz.smartautoclicker.core.common.tutorial.impl.data.TutorialCompletionStateDataSource
 import com.buzbuz.smartautoclicker.core.common.tutorial.impl.engine.TutorialEngine
+import com.buzbuz.smartautoclicker.core.common.tutorial.impl.monitoring.MonitoredViewsManagerImpl
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +58,7 @@ internal class TutorialRepositoryImpl @Inject constructor(
     private val accessibilityServiceConnection: LocalAccessibilityServiceConnection,
     private val smartRepository: IRepository,
     private val tutorialEngine: TutorialEngine,
+    private val monitoredViewsManager: MonitoredViewsManagerImpl,
     private val tutorialTipsStateDataSource: TipsStateDataSource,
     private val tutorialCompletionStateDataSource: TutorialCompletionStateDataSource,
 ) : TutorialRepository {
@@ -105,6 +107,7 @@ internal class TutorialRepositoryImpl @Inject constructor(
                 data = mpData,
             )
 
+            monitoredViewsManager.setViewMonitoringState(true)
             tutorialEngine.startTutorial(tutorial)
         }
     }
@@ -117,6 +120,7 @@ internal class TutorialRepositoryImpl @Inject constructor(
                 return@launch
             }
 
+            monitoredViewsManager.setViewMonitoringState(false)
             tutorialEngine.stopTutorial()
             localService.stopScenario()
 

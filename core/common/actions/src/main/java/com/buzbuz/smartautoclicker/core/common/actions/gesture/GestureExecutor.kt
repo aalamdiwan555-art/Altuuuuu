@@ -37,9 +37,6 @@ import kotlin.time.Duration.Companion.milliseconds
 @Singleton
 internal class GestureExecutor @Inject constructor() : Dumpable {
 
-    private var resultCallback: GestureResultCallback? = null
-    private var currentContinuation: Continuation<Boolean>? = null
-
     private var completedGestures: Long = 0L
     private var cancelledGestures: Long = 0L
     private var errorGestures: Long = 0L
@@ -49,66 +46,41 @@ internal class GestureExecutor @Inject constructor() : Dumpable {
         completedGestures = 0L
         cancelledGestures = 0L
         errorGestures = 0L
-
-        resultCallback = null
-        currentContinuation = null
     }
 
     suspend fun dispatchGesture(service: AccessibilityService, gesture: GestureDescription): Boolean {
-        if (currentContinuation != null) {
-            Log.w(TAG, "Previous gesture result is not available yet, clearing listener to avoid stale events")
-            resultCallback = null
-            currentContinuation = null
-        }
-
-        resultCallback = resultCallback ?: newGestureResultCallback()
-
-        val timeoutMs = gesture.timeoutDurationMs()
-        val result = withTimeoutOrNull(timeoutMs.milliseconds) {
+        val result = withTimeoutOrNull(gesture.timeoutDurationMs().milliseconds) {
             suspendCancellableCoroutine { continuation ->
-                currentContinuation = continuation
-
                 try {
-                    service.dispatchGesture(gesture, resultCallback, null)
+                    service.dispatchGesture(
+                        /* gesture = */ gesture,
+                        /* callback = */ object : GestureResultCallback() {
+                            override fun onCompleted(g: GestureDescription?) = continuation.safeResume(true)
+                            override fun onCancelled(g: GestureDescription?) = continuation.safeResume(false)
+                        },
+                        /* handler = */ null,
+                    )
                 } catch (rEx: RuntimeException) {
                     Log.w(TAG, "System is not responsive, the user might be spamming gesture too quickly", rEx)
-                    errorGestures++
-                    resumeExecution(gestureError = true)
+                    continuation.safeResume(false)
                 }
             }
         }
 
         if (result == null) {
-            Log.w(TAG, "Gesture timed out after ${timeoutMs}ms, no callback received")
+            Log.w(TAG, "Gesture error, timeout or system error occurred.")
             errorGestures++
-            currentContinuation = null
+            return false
         }
 
-        return result ?: false
-    }
-
-    private fun resumeExecution(gestureError: Boolean) {
-        currentContinuation?.let { continuation ->
-            currentContinuation = null
-
-            try {
-                continuation.resume(!gestureError)
-            } catch (isEx: IllegalStateException) {
-                Log.w(TAG, "Continuation have already been resumed. Did the same event got two results ?", isEx)
-            }
-        } ?: Log.w(TAG, "Can't resume continuation. Did the same event got two results ?")
-    }
-
-    private fun newGestureResultCallback() = object : GestureResultCallback() {
-        override fun onCompleted(gestureDescription: GestureDescription?) {
-            completedGestures++
-            resumeExecution(gestureError = false)
+        if (!result) {
+            Log.w(TAG, "Gesture has been cancelled.")
+            cancelledGestures ++
+            return false
         }
 
-        override fun onCancelled(gestureDescription: GestureDescription?) {
-            cancelledGestures++
-            resumeExecution(gestureError = false)
-        }
+        completedGestures++
+        return true
     }
 
     override fun dump(writer: PrintWriter, prefix: CharSequence) {
@@ -122,6 +94,14 @@ internal class GestureExecutor @Inject constructor() : Dumpable {
         }
     }
 }
+
+private fun <T> Continuation<T>.safeResume(value: T): Unit =
+    try {
+        resume(value)
+    } catch (isEx: IllegalStateException) {
+        Log.w(TAG, "Continuation have already been resumed. Did the same event got two results ?", isEx)
+        Unit
+    }
 
 private fun GestureDescription.durationMs(): Long {
     var maxEndTime = 0L

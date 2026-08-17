@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 class ColorCaptureViewModel @Inject constructor(
     @param:Dispatcher(Main) private val mainDispatcher: CoroutineDispatcher,
@@ -70,7 +71,7 @@ class ColorCaptureViewModel @Inject constructor(
         _uiState.update { capturingState() }
 
         screenshotJob = viewModelScope.launch(ioDispatcher) {
-            delay(200L) // Wait a bit to ensure menu is effectively invisible and a new screen frame is available
+            delay(200L.milliseconds) // Wait a bit to ensure menu is effectively invisible and a new screen frame is available
 
             val screenshot = displayRecorder.takeScreenshot()
             _uiState.update {

@@ -45,7 +45,7 @@ class CaptureViewModel @Inject constructor(
     fun takeScreenshot(resultCallback: (Bitmap?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             delay(200L.milliseconds)
-            val screenshot = displayRecorder.takeScreenshot() ?: return@launch
+            val screenshot = displayRecorder.takeScreenshot()
 
             withContext(Dispatchers.Main) {
                 resultCallback(screenshot)

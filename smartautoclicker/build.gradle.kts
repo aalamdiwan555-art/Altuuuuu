@@ -124,7 +124,7 @@ if (project.isBuildForVariant(KlickrFlavour.F_DROID)) {
                 else          -> 0  // universal
             }
             val baseVersionCode = output.versionCode.get()
-            output.versionCode.set(abiVersionCode * 10_000 + baseVersionCode)
+            output.versionCode.set(baseVersionCode * 10_000 + abiVersionCode)
         }
     }
 }

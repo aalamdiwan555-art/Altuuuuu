@@ -26,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 
 import com.buzbuz.smartautoclicker.R
+import com.buzbuz.smartautoclicker.auth.AdminActivity
 import com.buzbuz.smartautoclicker.auth.AuthActivity
 import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
 import com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment
@@ -71,6 +72,11 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
                 authRepository.loadCurrentProfile()
             } catch (_: Throwable) {
                 null
+            }
+            if (profile?.isAdmin == true) {
+                startActivity(Intent(this@ScenarioActivity, AdminActivity::class.java))
+                finish()
+                return@launch
             }
             if (profile?.hasActiveSubscription() != true) {
                 startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))

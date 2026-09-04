@@ -23,8 +23,11 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 
 import com.buzbuz.smartautoclicker.R
+import com.buzbuz.smartautoclicker.auth.AuthActivity
+import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
 import com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment
 import com.buzbuz.smartautoclicker.scenarios.list.model.ScenarioListUiState
 import com.buzbuz.smartautoclicker.core.base.extensions.delayDrawUntil
@@ -36,6 +39,7 @@ import com.buzbuz.smartautoclicker.feature.revenue.UserConsentState
 import com.buzbuz.smartautoclicker.scenarios.viewmodel.ScenarioViewModel
 
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 /**
  * Entry point activity for the application.
@@ -53,20 +57,36 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
 
     /** Scenario clicked by the user. */
     private var requestedItem: ScenarioListUiState.Item.ScenarioItem? = null
+    private lateinit var authRepository: SupabaseAuthRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_scenario)
+        authRepository = SupabaseAuthRepository(this)
+        setContentView(R.layout.auth_loading)
 
-        scenarioViewModel.stopScenario()
-        scenarioViewModel.requestUserConsentIfNeeded(this)
+        lifecycleScope.launch {
+            val profile = try {
+                authRepository.loadCurrentProfile()
+            } catch (_: Throwable) {
+                null
+            }
+            if (profile?.hasActiveSubscription() != true) {
+                startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))
+                finish()
+                return@launch
+            }
 
-        mediaProjectionRequest.registerForActivityResult(this)
+            setContentView(R.layout.activity_scenario)
+            scenarioViewModel.stopScenario()
+            scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
 
-        // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
-        findViewById<View>(android.R.id.content).delayDrawUntil {
-            scenarioViewModel.userConsentState.value != UserConsentState.UNKNOWN
+            mediaProjectionRequest.registerForActivityResult(this@ScenarioActivity)
+
+            // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
+            findViewById<View>(android.R.id.content).delayDrawUntil {
+                scenarioViewModel.userConsentState.value != UserConsentState.UNKNOWN
+            }
         }
     }
 
@@ -76,12 +96,25 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     }
 
     override fun startScenario(item: ScenarioListUiState.Item.ScenarioItem) {
-        requestedItem = item
+        lifecycleScope.launch {
+            val profile = try {
+                authRepository.loadCurrentProfile()
+            } catch (_: Throwable) {
+                null
+            }
+            if (profile?.hasActiveSubscription() != true) {
+                Toast.makeText(this@ScenarioActivity, R.string.auth_expired_title, Toast.LENGTH_LONG).show()
+                startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))
+                finish()
+                return@launch
+            }
 
-        scenarioViewModel.startPermissionFlowIfNeeded(
-            activity = this,
-            onAllGranted = ::onMandatoryPermissionsGranted,
-        )
+            requestedItem = item
+            scenarioViewModel.startPermissionFlowIfNeeded(
+                activity = this@ScenarioActivity,
+                onAllGranted = ::onMandatoryPermissionsGranted,
+            )
+        }
     }
 
     private fun onMandatoryPermissionsGranted() {

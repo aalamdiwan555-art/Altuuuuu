@@ -67,6 +67,11 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         authRepository = SupabaseAuthRepository(this)
         setContentView(R.layout.auth_loading)
 
+        if (authRepository.consumeRecentSessionValidation()) {
+            initializeScenario()
+            return
+        }
+
         lifecycleScope.launch {
             val profile = try {
                 authRepository.loadCurrentProfile()
@@ -84,17 +89,21 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
                 return@launch
             }
 
-            accessGranted = true
-            setContentView(R.layout.activity_scenario)
-            scenarioViewModel.stopScenario()
-            scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
+            initializeScenario()
+        }
+    }
 
-            mediaProjectionRequest.registerForActivityResult(this@ScenarioActivity)
+    private fun initializeScenario() {
+        accessGranted = true
+        setContentView(R.layout.activity_scenario)
+        scenarioViewModel.stopScenario()
+        scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
 
-            // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
-            findViewById<View>(android.R.id.content).delayDrawUntil {
-                scenarioViewModel.userConsentState.value != UserConsentState.UNKNOWN
-            }
+        mediaProjectionRequest.registerForActivityResult(this@ScenarioActivity)
+
+        // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
+        findViewById<View>(android.R.id.content).delayDrawUntil {
+            scenarioViewModel.userConsentState.value != UserConsentState.UNKNOWN
         }
     }
 

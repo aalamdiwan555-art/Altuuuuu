@@ -33,8 +33,22 @@ internal class AuthStore(context: Context) {
         preferences.edit().clear().apply()
     }
 
+    fun markSessionValidated() {
+        preferences.edit()
+            .putLong(KEY_LAST_VALIDATED_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun consumeRecentSessionValidation(maxAgeMs: Long = 15_000): Boolean {
+        val validatedAt = preferences.getLong(KEY_LAST_VALIDATED_AT, 0L)
+        preferences.edit().remove(KEY_LAST_VALIDATED_AT).apply()
+        val age = System.currentTimeMillis() - validatedAt
+        return validatedAt > 0L && age in 0..maxAgeMs
+    }
+
     private companion object {
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
+        const val KEY_LAST_VALIDATED_AT = "last_validated_at"
     }
 }

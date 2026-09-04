@@ -55,6 +55,9 @@ class AuthActivity : AppCompatActivity() {
 
             suspendRunCatching { repository.loadCurrentProfile() }
                 .onSuccess { profile ->
+                    if (profile?.hasActiveSubscription() == true) {
+                        repository.markSessionValidated()
+                    }
                     routeProfile(profile)
                 }
                 .onFailure { showMessage(getString(R.string.auth_generic_error), it.message ?: "") }
@@ -183,6 +186,9 @@ class AuthActivity : AppCompatActivity() {
                         .onSuccess { profile ->
                             // Route using the profile returned by sign-in. This avoids a
                             // second session request while the activity is transitioning.
+                            if (profile.hasActiveSubscription()) {
+                                repository.markSessionValidated()
+                            }
                             routeProfile(profile)
                         }
                         .onFailure {

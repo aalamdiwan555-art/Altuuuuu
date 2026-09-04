@@ -26,6 +26,10 @@ internal class SupabaseAuthRepository(context: Context) {
         get() = BuildConfig.SUPABASE_URL.startsWith("https://") &&
             BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
+    fun markSessionValidated() = store.markSessionValidated()
+
+    fun consumeRecentSessionValidation(): Boolean = store.consumeRecentSessionValidation()
+
     suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
         val response = request(
             path = "/auth/v1/signup",

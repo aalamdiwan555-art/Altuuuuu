@@ -64,6 +64,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
         authRepository = SupabaseAuthRepository(this)
         setContentView(R.layout.auth_loading)
 

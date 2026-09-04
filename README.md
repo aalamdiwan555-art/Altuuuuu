@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://github.com/Nain57/SmartAutoClicker/blob/master/smartautoclicker/src/main/ic_smart_auto_clicker-playstore.png?raw=true" height="64">
-  <h3 align="center">Klick'r - Smart AutoClicker</h3>
+  <h3 align="center">Altuuuuu - Smart AutoClicker</h3>
   <p align="center">An Autoclicker Based On Image Detection
   </p>
 </p>
@@ -18,7 +18,7 @@
 
 </br>
  
-<p>Klick'r is an open-source Android application designed to automate repetitive tasks effortlessly. Formerly known as Smart AutoClicker, Klick'r offers unique image detection capabilities alongside traditional auto-clicking functionalities, providing a versatile solution for all your automation needs.
+<p>Altuuuuu is an open-source Android application designed to automate repetitive tasks effortlessly. It offers unique image detection capabilities alongside traditional auto-clicking functionalities, providing a versatile solution for all your automation needs.
 </p>
 <p>Whether you’re a gamer automating in-game actions, a tester simulating user interactions, or anyone performing repetitive clicking tasks, Klick'r offers both image detection for sophisticated automation and a Regular Mode for straightforward auto-clicking.
 </p>
@@ -32,6 +32,11 @@
 * **Regular Mode**: Enjoy a straightforward auto-clicking experience with our Regular Mode, designed for easy configuration and ideal for simpler, repetitive tasks.
 * **Tutorials**: Learn to master Klick'r with our interactive game tutorials, which provide step-by-step instructions to help you automate tasks and beat the game using Klick'r's powerful features.
 * **Open Source**: As an open-source project, Klick'r is continuously improved by a dedicated community.
+
+## Account access
+New accounts remain pending until an administrator approves them. An administrator assigns a 1-day, 2-day, 3-day, or lifetime subscription from the in-app admin panel. The app checks approval and expiry before every scenario starts and stops a running scenario after access expires.
+
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for the one-time Supabase and GitHub Actions setup.
 
 
 ## Links:

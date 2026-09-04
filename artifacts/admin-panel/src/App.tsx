@@ -23,6 +23,7 @@ import {
   getGetAdminSessionQueryKey,
   getGetAdminSummaryQueryKey,
   getListAdminUsersQueryKey,
+  type AdminSession,
   useAdminLogin,
   useAdminLogout,
   useApproveAdminUser,
@@ -87,7 +88,7 @@ function LoadingBars() {
   );
 }
 
-function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
+function LoginPage({ onLoggedIn }: { onLoggedIn: (session: AdminSession) => void }) {
   const login = useAdminLogin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -102,7 +103,7 @@ function LoginPage({ onLoggedIn }: { onLoggedIn: () => void }) {
       return;
     }
     login.mutate({ data: { email: email.trim(), password } }, {
-      onSuccess: () => onLoggedIn(),
+      onSuccess: (session) => onLoggedIn(session),
       onError: () => setLocalError('Those details did not match an administrator account.'),
     });
   }
@@ -366,14 +367,23 @@ function Home() {
   const client = useQueryClient();
   const session = useGetAdminSession({ query: { queryKey: getGetAdminSessionQueryKey(), retry: false } });
   const logout = useAdminLogout();
-  const [loggedIn, setLoggedIn] = useState(false);
 
-  if (session.isLoading && !loggedIn) return <div className="min-h-[100dvh] bg-[#f3efe6] p-5 sm:p-10"><div className="mx-auto max-w-6xl"><div className="mb-12 h-10 w-40 animate-pulse rounded-lg bg-[#dedbd1]" /><LoadingBars /></div></div>;
-  if (session.data?.admin || loggedIn) {
-    const email = session.data?.admin.email ?? 'admin@altuuuuu.com';
-    return <Workspace adminEmail={email} onLogout={() => logout.mutate(undefined, { onSuccess: () => { setLoggedIn(false); client.setQueryData(getGetAdminSessionQueryKey(), undefined); client.invalidateQueries({ queryKey: getGetAdminSessionQueryKey() }); } })} />;
+  if (session.isLoading) return <div className="min-h-[100dvh] bg-[#f3efe6] p-5 sm:p-10"><div className="mx-auto max-w-6xl"><div className="mb-12 h-10 w-40 animate-pulse rounded-lg bg-[#dedbd1]" /><LoadingBars /></div></div>;
+  if (session.data?.admin) {
+    const email = session.data.admin.email;
+    return <Workspace adminEmail={email} onLogout={() => logout.mutate(undefined, { onSuccess: () => {
+      client.setQueryData(getGetAdminSessionQueryKey(), undefined);
+      client.removeQueries({ queryKey: getGetAdminSummaryQueryKey() });
+      client.removeQueries({ queryKey: getListAdminUsersQueryKey() });
+    } })} />;
   }
-  return <LoginPage onLoggedIn={() => { setLoggedIn(true); client.invalidateQueries({ queryKey: getGetAdminSessionQueryKey() }); client.invalidateQueries({ queryKey: getGetAdminSummaryQueryKey() }); }} />;
+  return <LoginPage onLoggedIn={(nextSession) => {
+    // Seed the session cache from the login response before mounting the
+    // workspace. This prevents protected queries from racing the cookie write.
+    client.setQueryData(getGetAdminSessionQueryKey(), nextSession);
+    client.invalidateQueries({ queryKey: getGetAdminSummaryQueryKey() });
+    client.invalidateQueries({ queryKey: getListAdminUsersQueryKey() });
+  }} />;
 }
 
 function Router() {

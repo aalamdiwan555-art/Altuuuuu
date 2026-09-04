@@ -52,38 +52,36 @@ class AuthActivity : AppCompatActivity() {
             }
 
             suspendRunCatching { repository.loadCurrentProfile() }
-                .onSuccess { profile -> handleProfile(profile) }
+                .onSuccess { profile ->
+                    when {
+                        profile == null -> showAuthForm()
+                        profile.isAdmin -> {
+                            startActivity(Intent(this@AuthActivity, AdminActivity::class.java))
+                            finish()
+                        }
+                        profile.hasActiveSubscription() -> {
+                            startActivity(Intent(this@AuthActivity, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
+                            finish()
+                        }
+                        profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                        profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
+                            getString(R.string.auth_declined_title),
+                            getString(R.string.auth_declined_message),
+                        )
+                        else -> showMessage(
+                            getString(R.string.auth_expired_title),
+                            getString(R.string.auth_expired_message),
+                        )
+                    }
+                }
                 .onFailure { showMessage(getString(R.string.auth_generic_error), it.message ?: "") }
         }
     }
 
-    private fun handleProfile(profile: UserProfile?) {
-          when {
-              profile == null -> showAuthForm()
-              profile.isAdmin -> {
-                  startActivity(Intent(this@AuthActivity, AdminActivity::class.java))
-                  finish()
-              }
-              profile.hasActiveSubscription() -> {
-                  startActivity(Intent(this@AuthActivity, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
-                  finish()
-              }
-              profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
-                  getString(R.string.auth_pending_title),
-                  getString(R.string.auth_pending_message),
-              )
-              profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
-                  getString(R.string.auth_declined_title),
-                  getString(R.string.auth_declined_message),
-              )
-              else -> showMessage(
-                  getString(R.string.auth_expired_title),
-                  getString(R.string.auth_expired_message),
-              )
-          }
-      }
-
-        private fun showAuthForm() {
+    private fun showAuthForm() {
         root = baseLayout()
         val title = TextView(this).apply {
             text = if (isSignUp) getString(R.string.auth_sign_up) else getString(R.string.auth_sign_in)
@@ -148,25 +146,18 @@ class AuthActivity : AppCompatActivity() {
             view.isEnabled = false
             
             lifecycleScope.launch {
-                val signingUp = isSignUp
-                  suspendRunCatching {
-                      if (signingUp) {
-                          repository.signUp(emailValue, passwordValue)
-                          null
-                      } else {
-                          repository.signIn(emailValue, passwordValue)
-                      }
-                  }.onSuccess { profile ->
-                      if (signingUp) {
-                          isSignUp = false
-                          showMessage(
-                              getString(R.string.auth_pending_title),
-                              getString(R.string.auth_pending_message),
-                          )
-                      } else {
-                          handleProfile(profile)
-                      }
-                  }                }.onFailure {
+                suspendRunCatching {
+                    if (isSignUp) repository.signUp(emailValue, passwordValue)
+                    else repository.signIn(emailValue, passwordValue)
+                }.onSuccess {
+                    if (isSignUp) {
+                        isSignUp = false
+                        showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                    } else refreshSession()
+                }.onFailure {
                     view.isEnabled = true
                     submit.isEnabled = true
                     showError(it)

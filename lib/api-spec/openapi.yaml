@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: admin
+    description: Administrator authentication and account approvals
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Sign in as an administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Administrator session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "400":
+          description: Invalid credentials
+        "403":
+          description: Account is not an administrator
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Sign out the current administrator
+      responses:
+        "204":
+          description: Signed out
+  /admin/session:
+    get:
+      operationId: getAdminSession
+      tags: [admin]
+      summary: Get the current administrator session
+      responses:
+        "200":
+          description: Administrator session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Not signed in
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      tags: [admin]
+      summary: Get account approval totals
+      responses:
+        "200":
+          description: Approval summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
+        "401":
+          description: Not signed in
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List non-administrator accounts
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, PENDING, APPROVED, DECLINED]
+            default: ALL
+      responses:
+        "200":
+          description: User accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Not signed in
+  /admin/users/{userId}/subscription:
+    post:
+      operationId: approveAdminUser
+      tags: [admin]
+      summary: Approve an account with a subscription plan
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionApprovalInput"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Not signed in
+        "403":
+          description: Administrator access required
+  /admin/users/{userId}/decline:
+    post:
+      operationId: declineAdminUser
+      tags: [admin]
+      summary: Decline an account
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Not signed in
+        "403":
+          description: Administrator access required
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+    AdminUser:
+      type: object
+      required: [id, email, approvalStatus, subscriptionPlan, subscriptionExpiresAt, isAdmin, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        approvalStatus:
+          type: string
+          enum: [PENDING, APPROVED, DECLINED]
+        subscriptionPlan:
+          type: string
+          enum: [NONE, ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME]
+        subscriptionExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    AdminSession:
+      type: object
+      required: [admin]
+      properties:
+        admin:
+          $ref: "#/components/schemas/AdminUser"
+    AdminSummary:
+      type: object
+      required: [total, pending, approved, declined]
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        approved:
+          type: integer
+        declined:
+          type: integer
+    SubscriptionApprovalInput:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: string
+          enum: [ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME]
+

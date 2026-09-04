@@ -10,7 +10,14 @@ export type SupabaseProfile = {
   id: string;
   email: string;
   approval_status: "PENDING" | "APPROVED" | "DECLINED";
-  subscription_plan: "NONE" | "ONE_DAY" | "TWO_DAYS" | "THREE_DAYS" | "LIFETIME";
+  subscription_plan:
+    | "NONE"
+    | "ONE_DAY"
+    | "TWO_DAYS"
+    | "THREE_DAYS"
+    | "LIFETIME"
+    | "CUSTOM";
+  subscription_days?: number | null;
   subscription_expires_at: string | null;
   is_admin: boolean;
   created_at: string;
@@ -20,6 +27,7 @@ export class SupabaseHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -52,12 +60,17 @@ async function supabaseRequest<T>(
   }
 
   if (!response.ok) {
-    const body = data as { message?: string; error_description?: string } | null;
+    const body = data as {
+      code?: string;
+      message?: string;
+      error_description?: string;
+    } | null;
     throw new SupabaseHttpError(
       body?.message ??
         body?.error_description ??
         `Supabase request failed with status ${response.status}.`,
       response.status,
+      body?.code,
     );
   }
 
@@ -102,15 +115,11 @@ export async function getProfile(
   userId: string,
 ): Promise<SupabaseProfile | null> {
   const params = new URLSearchParams({
-    select:
-      "id,email,approval_status,subscription_plan,subscription_expires_at,is_admin,created_at",
+    select: profileSelect(true),
     id: `eq.${userId}`,
     limit: "1",
   });
-  const rows = await supabaseRequest<SupabaseProfile[]>(
-    `/rest/v1/profiles?${params.toString()}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  const rows = await requestProfileRows(accessToken, params);
   return rows[0] ?? null;
 }
 
@@ -118,15 +127,51 @@ export async function listProfiles(
   accessToken: string,
 ): Promise<SupabaseProfile[]> {
   const params = new URLSearchParams({
-    select:
-      "id,email,approval_status,subscription_plan,subscription_expires_at,is_admin,created_at",
+    select: profileSelect(true),
     is_admin: "eq.false",
     order: "created_at.desc",
   });
-  return supabaseRequest<SupabaseProfile[]>(
-    `/rest/v1/profiles?${params.toString()}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  return requestProfileRows(accessToken, params);
+}
+
+const profileSelect = (includeSubscriptionDays: boolean): string =>
+  [
+    "id",
+    "email",
+    "approval_status",
+    "subscription_plan",
+    includeSubscriptionDays ? "subscription_days" : null,
+    "subscription_expires_at",
+    "is_admin",
+    "created_at",
+  ]
+    .filter(Boolean)
+    .join(",");
+
+async function requestProfileRows(
+  accessToken: string,
+  params: URLSearchParams,
+): Promise<SupabaseProfile[]> {
+  try {
+    return await supabaseRequest<SupabaseProfile[]>(
+      `/rest/v1/profiles?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  } catch (error) {
+    if (
+      !(error instanceof SupabaseHttpError) ||
+      error.code !== "42703" ||
+      !error.message.includes("subscription_days")
+    ) {
+      throw error;
+    }
+
+    params.set("select", profileSelect(false));
+    return supabaseRequest<SupabaseProfile[]>(
+      `/rest/v1/profiles?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  }
 }
 
 export async function approveProfile(

@@ -59,6 +59,21 @@ android {
 
         versionCode = 96
         versionName = "4.0.1"
+
+        fun String.asBuildConfigString(): String =
+            "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+        val supabaseUrl = project.providers.gradleProperty("supabaseUrl")
+            .orElse(project.providers.environmentVariable("SUPABASE_URL"))
+            .orElse("")
+            .get()
+        val supabaseAnonKey = project.providers.gradleProperty("supabaseAnonKey")
+            .orElse(project.providers.environmentVariable("SUPABASE_ANON_KEY"))
+            .orElse("")
+            .get()
+
+        buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
+        buildConfigField("String", "SUPABASE_ANON_KEY", supabaseAnonKey.asBuildConfigString())
     }
 
     if (project.isBuildForVariant(KlickrFlavour.F_DROID, KlickrBuildType.DEBUG)) {

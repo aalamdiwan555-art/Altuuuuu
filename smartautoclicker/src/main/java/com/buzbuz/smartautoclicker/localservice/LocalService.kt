@@ -33,6 +33,7 @@ import com.buzbuz.smartautoclicker.core.processing.domain.SmartProcessingReposit
 import com.buzbuz.smartautoclicker.core.processing.domain.model.DetectionState
 import com.buzbuz.smartautoclicker.core.settings.domain.SettingsRepository
 import com.buzbuz.smartautoclicker.core.smart.debugging.domain.DebuggingRepository
+import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
 import com.buzbuz.smartautoclicker.feature.smart.config.ui.mainmenu.MainMenu
 import com.buzbuz.smartautoclicker.feature.dumb.config.ui.DumbMainMenu
 import com.buzbuz.smartautoclicker.feature.notifications.ServiceNotificationController
@@ -50,6 +51,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 
 class LocalService(
     private val context: Context,
@@ -71,6 +73,9 @@ class LocalService(
     private var startJob: Job? = null
     /** Coroutine job for the paywall result upon start from notification. */
     private var paywallResultJob: Job? = null
+    /** Periodically stops a running scenario when the remote subscription expires or is revoked. */
+    private var subscriptionMonitorJob: Job? = null
+    private val authRepository: SupabaseAuthRepository by lazy { SupabaseAuthRepository(context) }
 
     /** Controls the notifications for the foreground service. */
     private val notificationController: ServiceNotificationController by lazy {
@@ -110,9 +115,29 @@ class LocalService(
                 )
             }
             .launchIn(serviceScope)
+
+        subscriptionMonitorJob = serviceScope.launch {
+            while (isActive) {
+                delay(60_000)
+                val hasActiveSubscription = try {
+                    authRepository.hasActiveSubscription()
+                } catch (_: Throwable) {
+                    false
+                }
+                if (isStarted && !hasActiveSubscription) {
+                    stopScenario()
+                }
+            }
+        }
     }
 
     override fun startDumbScenario(dumbScenario: DumbScenario) {
+        serviceScope.launch {
+            if (hasActiveSubscription()) startDumbScenarioAuthorized(dumbScenario)
+        }
+    }
+
+    private fun startDumbScenarioAuthorized(dumbScenario: DumbScenario) {
         if (state.isStarted) return
         state = LocalServiceState(isStarted = true, isSmartLoaded = false)
         onStart(dumbScenario.id.databaseId, false, null)
@@ -144,6 +169,12 @@ class LocalService(
      * @param scenario the identifier of the scenario of clicks to be used for detection.
      */
     override fun startSmartScenario(resultCode: Int, data: Intent, scenario: Scenario) {
+        serviceScope.launch {
+            if (hasActiveSubscription()) startSmartScenarioAuthorized(resultCode, data, scenario)
+        }
+    }
+
+    private fun startSmartScenarioAuthorized(resultCode: Int, data: Intent, scenario: Scenario) {
         if (isStarted) return
         state = LocalServiceState(isStarted = true, isSmartLoaded = true)
 
@@ -177,6 +208,13 @@ class LocalService(
             )
         }
     }
+
+    private suspend fun hasActiveSubscription(): Boolean =
+        try {
+            authRepository.hasActiveSubscription()
+        } catch (_: Throwable) {
+            false
+        }
 
     override fun stopScenario() {
         if (!isStarted) return

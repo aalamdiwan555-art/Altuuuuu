@@ -1,0 +1,225 @@
+/*
+ * Copyright (C) 2026 Altuuuuu contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation.
+ */
+package com.buzbuz.smartautoclicker.auth
+
+import android.content.Intent
+import android.os.Bundle
+import android.text.InputType
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.buzbuz.smartautoclicker.R
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.launch
+
+class AuthActivity : AppCompatActivity() {
+
+    private lateinit var repository: SupabaseAuthRepository
+    private lateinit var root: LinearLayout
+    private var isSignUp = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        repository = SupabaseAuthRepository(this)
+        showLoading()
+        refreshSession()
+    }
+
+    private fun refreshSession() {
+        lifecycleScope.launch {
+            if (!repository.isConfigured) {
+                showMessage(
+                    title = getString(R.string.auth_configuration_missing),
+                    message = getString(R.string.auth_configuration_missing),
+                    returnToAuthForm = false,
+                )
+                return@launch
+            }
+
+            suspendRunCatching { repository.loadCurrentProfile() }
+                .onSuccess { profile ->
+                    when {
+                        profile == null -> showAuthForm()
+                        profile.isAdmin -> {
+                            startActivity(Intent(this@AuthActivity, AdminActivity::class.java))
+                            finish()
+                        }
+                        profile.hasActiveSubscription() -> {
+                            startActivity(Intent(this@AuthActivity, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
+                            finish()
+                        }
+                        profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                        profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
+                            getString(R.string.auth_declined_title),
+                            getString(R.string.auth_declined_message),
+                        )
+                        else -> showMessage(
+                            getString(R.string.auth_expired_title),
+                            getString(R.string.auth_expired_message),
+                        )
+                    }
+                }
+                .onFailure { showMessage(getString(R.string.auth_generic_error), it.message ?: "") }
+        }
+    }
+
+    private fun showAuthForm() {
+        root = baseLayout()
+        val title = TextView(this).apply {
+            text = if (isSignUp) getString(R.string.auth_sign_up) else getString(R.string.auth_sign_in)
+            textSize = 28f
+            gravity = Gravity.CENTER
+        }
+        root.addView(title, marginParams(bottom = 24))
+
+        val email = TextInputEditText(this).apply {
+            hint = getString(R.string.auth_email)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        val emailLayout = TextInputLayout(this).apply {
+            addView(email)
+        }
+        root.addView(emailLayout, marginParams(bottom = 12))
+
+        val password = TextInputEditText(this).apply {
+            hint = getString(R.string.auth_password)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val passwordLayout = TextInputLayout(this).apply {
+            addView(password)
+        }
+        root.addView(passwordLayout, marginParams(bottom = 20))
+
+        val submit = Button(this).apply {
+            text = if (isSignUp) getString(R.string.auth_submit_sign_up) else getString(R.string.auth_submit_sign_in)
+            setOnClickListener {
+                val emailValue = email.text?.toString()?.trim().orEmpty()
+                val passwordValue = password.text?.toString().orEmpty()
+                if (emailValue.isBlank() || passwordValue.length < 6) {
+                    emailLayout.error = if (emailValue.isBlank()) getString(R.string.auth_email) else null
+                    passwordLayout.error = "Password must be at least 6 characters."
+                    return@setOnClickListener
+                }
+
+                submit.isEnabled = false
+                lifecycleScope.launch {
+                    suspendRunCatching {
+                        if (isSignUp) repository.signUp(emailValue, passwordValue)
+                        else repository.signIn(emailValue, passwordValue)
+                    }.onSuccess {
+                        if (isSignUp) {
+                            showMessage(
+                                getString(R.string.auth_pending_title),
+                                getString(R.string.auth_pending_message),
+                            )
+                        } else refreshSession()
+                    }.onFailure {
+                        submit.isEnabled = true
+                        showError(it)
+                    }
+                }
+            }
+        }
+        root.addView(submit, fullWidthParams())
+
+        val switchMode = Button(this).apply {
+            text = if (isSignUp) getString(R.string.auth_switch_to_sign_in) else getString(R.string.auth_switch_to_sign_up)
+            setOnClickListener {
+                isSignUp = !isSignUp
+                showAuthForm()
+            }
+        }
+        root.addView(switchMode, fullWidthParams())
+        setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun showMessage(title: String, message: String, returnToAuthForm: Boolean = true) {
+        root = baseLayout()
+        root.addView(TextView(this).apply {
+            text = title
+            textSize = 26f
+            gravity = Gravity.CENTER
+        }, marginParams(bottom = 18))
+        root.addView(TextView(this).apply {
+            text = message
+            textSize = 16f
+            gravity = Gravity.CENTER
+        }, marginParams(bottom = 24))
+
+        val refresh = Button(this).apply {
+            text = getString(R.string.auth_refresh)
+            setOnClickListener {
+                showLoading()
+                refreshSession()
+            }
+        }
+        root.addView(refresh, fullWidthParams())
+
+        val logout = Button(this).apply {
+            text = getString(R.string.auth_logout)
+            setOnClickListener {
+                lifecycleScope.launch {
+                    suspendRunCatching { repository.signOut() }
+                    if (returnToAuthForm) showAuthForm() else finish()
+                }
+            }
+        }
+        root.addView(logout, fullWidthParams())
+        setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun showLoading() {
+        setContentView(FrameLayout(this).apply {
+            addView(ProgressBar(this@AuthActivity).apply {
+                isIndeterminate = true
+            }, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { gravity = Gravity.CENTER })
+        })
+    }
+
+    private fun baseLayout(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(40, 64, 40, 40)
+    }
+
+    private fun showError(error: Throwable) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.auth_generic_error))
+            .setMessage(error.message ?: getString(R.string.auth_generic_error))
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun marginParams(bottom: Int): LinearLayout.LayoutParams =
+        fullWidthParams().apply { bottomMargin = bottom }
+
+    private fun fullWidthParams(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+}
+
+private suspend fun <T> suspendRunCatching(block: suspend () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }

@@ -63,17 +63,31 @@ android {
         fun String.asBuildConfigString(): String =
             "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-        val supabaseUrl = project.providers.gradleProperty("supabaseUrl")
-            .orElse(project.providers.environmentVariable("SUPABASE_URL"))
-            .orElse("")
-            .get()
-        val supabaseAnonKey = project.providers.gradleProperty("supabaseAnonKey")
-            .orElse(project.providers.environmentVariable("SUPABASE_ANON_KEY"))
-            .orElse("")
-            .get()
+        // FIXED: Read from ALL possible sources (env var upper/lower + gradle props upper/lower)
+        val supabaseUrl = (System.getenv("SUPABASE_URL")
+            ?: System.getenv("supabaseUrl")
+            ?: (project.findProperty("SUPABASE_URL") as String?)
+            ?: (project.findProperty("supabaseUrl") as String?)
+            ?: project.providers.environmentVariable("SUPABASE_URL").orNull
+            ?: project.providers.gradleProperty("supabaseUrl").orNull
+            ?: project.providers.gradleProperty("SUPABASE_URL").orNull
+            ?: "").trim()
+
+        val supabaseAnonKey = (System.getenv("SUPABASE_ANON_KEY")
+            ?: System.getenv("supabaseAnonKey")
+            ?: (project.findProperty("SUPABASE_ANON_KEY") as String?)
+            ?: (project.findProperty("supabaseAnonKey") as String?)
+            ?: project.providers.environmentVariable("SUPABASE_ANON_KEY").orNull
+            ?: project.providers.gradleProperty("supabaseAnonKey").orNull
+            ?: project.providers.gradleProperty("SUPABASE_ANON_KEY").orNull
+            ?: "").trim()
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl.asBuildConfigString())
         buildConfigField("String", "SUPABASE_ANON_KEY", supabaseAnonKey.asBuildConfigString())
+
+        // This will show in GitHub Actions log
+        println(">>> SUPABASE_URL configured: ${supabaseUrl.isNotEmpty()} length=${supabaseUrl.length}")
+        println(">>> SUPABASE_ANON_KEY configured: ${supabaseAnonKey.isNotEmpty()} length=${supabaseAnonKey.length}")
     }
 
     if (project.isBuildForVariant(KlickrFlavour.F_DROID, KlickrBuildType.DEBUG)) {

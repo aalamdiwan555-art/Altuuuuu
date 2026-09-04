@@ -65,7 +65,7 @@ internal class SupabaseAuthRepository(context: Context) {
 
         val encodedId = URLEncoder.encode(userId, Charsets.UTF_8.name())
         val profiles = requestWithSessionRefresh(
-            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_expires_at,is_admin&id=eq.$encodedId&limit=1",
+            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&id=eq.$encodedId&limit=1",
         )
         val profile = profiles.optJSONArray("data")?.optJSONObject(0)
             ?: throw AuthException("Your account profile is not available yet.")
@@ -75,16 +75,17 @@ internal class SupabaseAuthRepository(context: Context) {
     suspend fun hasActiveSubscription(): Boolean =
         loadCurrentProfile()?.hasActiveSubscription() == true
 
-    suspend fun approveUser(userId: String, plan: SubscriptionPlan) {
+    suspend fun approveUser(userId: String, plan: SubscriptionPlan, customDays: Int? = null) {
         withContext(Dispatchers.IO) {
+            val body = JSONObject()
+                .put("target_user_id", userId)
+                .put("plan", plan.name)
+            customDays?.let { body.put("custom_days", it) }
             request(
                 path = "/rest/v1/rpc/admin_set_subscription",
                 method = "POST",
                 token = store.accessToken,
-                body = JSONObject()
-                    .put("target_user_id", userId)
-                    .put("plan", plan.name)
-                    .toString(),
+                body = body.toString(),
             )
         }
     }
@@ -102,7 +103,7 @@ internal class SupabaseAuthRepository(context: Context) {
 
     suspend fun loadUsersForAdmin(): List<UserProfile> = withContext(Dispatchers.IO) {
         val profiles = request(
-            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_expires_at,is_admin&is_admin=eq.false&order=created_at.desc",
+            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&is_admin=eq.false&order=created_at.desc",
             token = store.accessToken,
         )
         val rows = profiles.optJSONArray("data") ?: JSONArray()
@@ -231,6 +232,11 @@ private fun JSONObject.toUserProfile(
         email = optString("email").ifBlank { fallbackEmail },
         approvalStatus = ApprovalStatus.fromValue(optString("approval_status")),
         subscriptionPlan = SubscriptionPlan.fromValue(optString("subscription_plan")),
+        subscriptionDays = if (has("subscription_days") && !isNull("subscription_days")) {
+            optInt("subscription_days")
+        } else {
+            null
+        },
         subscriptionExpiresAt = parseIsoTimestamp(optString("subscription_expires_at")),
         isAdmin = optBoolean("is_admin", false),
     )

@@ -3,8 +3,10 @@
  */
 package com.buzbuz.smartautoclicker.auth
 
+import android.content.DialogInterface
 import android.os.Bundle
 import android.text.format.DateFormat
+import android.text.InputType
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -15,6 +17,8 @@ import androidx.lifecycle.lifecycleScope
 import com.buzbuz.smartautoclicker.R
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.math.roundToInt
@@ -172,24 +176,71 @@ class AdminActivity : AppCompatActivity() {
             getString(R.string.auth_plan_two_days),
             getString(R.string.auth_plan_three_days),
             getString(R.string.auth_plan_lifetime),
+            getString(R.string.auth_plan_custom),
         )
         val values = arrayOf(
             SubscriptionPlan.ONE_DAY,
             SubscriptionPlan.TWO_DAYS,
             SubscriptionPlan.THREE_DAYS,
             SubscriptionPlan.LIFETIME,
+            SubscriptionPlan.CUSTOM,
         )
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.auth_choose_subscription))
             .setItems(plans) { _, index ->
-                actionButton.isEnabled = false
-                lifecycleScope.launch {
-                    suspendRunCatching { repository.approveUser(profile.id, values[index]) }
-                        .onSuccess { loadUsers() }
-                        .onFailure { actionButton.isEnabled = true; showError(it) }
+                if (values[index] == SubscriptionPlan.CUSTOM) {
+                    showCustomDaysDialog(profile, actionButton)
+                } else {
+                    approveUser(profile, actionButton, values[index])
                 }
             }
             .show()
+    }
+
+    private fun showCustomDaysDialog(profile: UserProfile, actionButton: Button) {
+        val input = TextInputEditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            hint = getString(R.string.auth_custom_days_hint)
+        }
+        val inputLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.auth_custom_days_hint)
+            addView(input)
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.auth_custom_days_title))
+            .setView(inputLayout)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(getString(R.string.auth_approve), null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val days = input.text?.toString()?.trim()?.toIntOrNull()
+                if (days == null || days !in 1..365) {
+                    inputLayout.error = getString(R.string.auth_custom_days_error)
+                    return@setOnClickListener
+                }
+                inputLayout.error = null
+                dialog.dismiss()
+                approveUser(profile, actionButton, SubscriptionPlan.CUSTOM, days)
+            }
+        }
+        dialog.show()
+    }
+
+    private fun approveUser(
+        profile: UserProfile,
+        actionButton: Button,
+        plan: SubscriptionPlan,
+        customDays: Int? = null,
+    ) {
+        actionButton.isEnabled = false
+        lifecycleScope.launch {
+            suspendRunCatching { repository.approveUser(profile.id, plan, customDays) }
+                .onSuccess { loadUsers() }
+                .onFailure { actionButton.isEnabled = true; showError(it) }
+        }
     }
 
     private fun confirmDecline(profile: UserProfile, actionButton: Button) {
@@ -231,10 +282,15 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun subscriptionText(profile: UserProfile): String =
-        if (profile.subscriptionPlan == SubscriptionPlan.LIFETIME) {
-            getString(R.string.auth_plan_lifetime)
-        } else {
-            profile.subscriptionPlan.name + profile.subscriptionExpiresAt?.let {
+        when (profile.subscriptionPlan) {
+            SubscriptionPlan.LIFETIME -> getString(R.string.auth_plan_lifetime)
+            SubscriptionPlan.CUSTOM -> getString(
+                R.string.auth_plan_custom_format,
+                profile.subscriptionDays ?: 0,
+            ) + profile.subscriptionExpiresAt?.let {
+                " · " + DateFormat.getDateFormat(this).format(Date(it))
+            }.orEmpty()
+            else -> profile.subscriptionPlan.name + profile.subscriptionExpiresAt?.let {
                 " · " + DateFormat.getDateFormat(this).format(Date(it))
             }.orEmpty()
         }

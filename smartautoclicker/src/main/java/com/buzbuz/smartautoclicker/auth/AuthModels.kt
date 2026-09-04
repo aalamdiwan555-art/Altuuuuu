@@ -26,7 +26,8 @@ enum class SubscriptionPlan {
     ONE_DAY,
     TWO_DAYS,
     THREE_DAYS,
-    LIFETIME;
+    LIFETIME,
+    CUSTOM;
 
     companion object {
         fun fromValue(value: String?): SubscriptionPlan =
@@ -39,6 +40,7 @@ data class UserProfile(
     val email: String,
     val approvalStatus: ApprovalStatus,
     val subscriptionPlan: SubscriptionPlan,
+    val subscriptionDays: Int?,
     val subscriptionExpiresAt: Long?,
     val isAdmin: Boolean,
 ) {

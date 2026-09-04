@@ -57,6 +57,11 @@
     <string name="auth_plan_two_days">2 days</string>
     <string name="auth_plan_three_days">3 days</string>
     <string name="auth_plan_lifetime">Lifetime</string>
+    <string name="auth_plan_custom">Custom duration</string>
+    <string name="auth_custom_days_title">Custom subscription duration</string>
+    <string name="auth_custom_days_hint">Days (1–365)</string>
+    <string name="auth_custom_days_error">Enter a number between 1 and 365.</string>
+    <string name="auth_plan_custom_format">%1$d days</string>
     <string name="auth_configuration_missing_title">Sign-in is unavailable</string>
     <string name="auth_configuration_missing">The app is missing its Supabase configuration. Add SUPABASE_URL and SUPABASE_ANON_KEY to the build environment, then install a new build.</string>
     <string name="auth_generic_error">Something went wrong. Please try again.</string>

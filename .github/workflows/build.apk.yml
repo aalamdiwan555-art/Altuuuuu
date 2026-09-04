@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -22,31 +19,27 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Patch Kotlin compile errors for Gradle 9.5.1 + Kotlin 2.2
-        run: |
-          echo "Patching AdminActivity.kt..."
-          FILE="smartautoclicker/src/main/java/com/buzbuz/smartautoclicker/auth/AdminActivity.kt"
-          # suspendRunCatching is now private in Kotlin 2.2, replace with runCatching
-          sed -i 's/suspendRunCatching/runCatching/g' "$FILE"
-          cat "$FILE" | grep -n "runCatching"
-
       - name: Create Debug Keystore
         run: |
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          echo "storeFile=${{ github.workspace }}/debug.keystore" > keystore.properties
-          echo "storePassword=android" >> keystore.properties
-          echo "keyAlias=androiddebugkey" >> keystore.properties
-          echo "keyPassword=android" >> keystore.properties
           mkdir -p ~/.android
           cp debug.keystore ~/.android/debug.keystore
           cp debug.keystore smartautoclicker/debug.keystore || true
-          cp keystore.properties smartautoclicker/keystore.properties || true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build debug APK
-        run: ./gradlew :smartautoclicker:assembleFDroidDebug --no-daemon --stacktrace
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Building with SUPABASE_URL length: ${#SUPABASE_URL}"
+          ./gradlew :smartautoclicker:assembleFDroidDebug --no-daemon --stacktrace \
+            -PsupabaseUrl="$SUPABASE_URL" \
+            -PsupabaseAnonKey="$SUPABASE_ANON_KEY" \
+            -PSUPABASE_URL="$SUPABASE_URL" \
+            -PSUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

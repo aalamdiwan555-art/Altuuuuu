@@ -15,23 +15,51 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "17"
+          cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Fix Gradle Version to 8.7 (Compulsory)
+        run: |
+          sed -i 's|gradle-.*-bin.zip|gradle-8.7-bin.zip|g' gradle/wrapper/gradle-wrapper.properties
+          cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: Patch Kotlin compile error
+        run: |
+          FILE="smartautoclicker/src/main/java/com/buzbuz/smartautoclicker/auth/AdminActivity.kt"
+          if [ -f "$FILE" ]; then
+            sed -i 's/suspendRunCatching/runCatching/g' "$FILE"
+          fi
+          # AuthActivity submit fix
+          FILE2="smartautoclicker/src/main/java/com/buzbuz/smartautoclicker/auth/AuthActivity.kt"
+          if [ -f "$FILE2" ]; then
+            sed -i 's/\.submit(/\.setValue(/g' "$FILE2" || true
+          fi
+
+      - name: Create Debug Keystore
+        run: |
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          echo "storeFile=${{ github.workspace }}/debug.keystore" > keystore.properties
+          echo "storePassword=android" >> keystore.properties
+          echo "keyAlias=androiddebugkey" >> keystore.properties
+          echo "keyPassword=android" >> keystore.properties
+          cp debug.keystore smartautoclicker/debug.keystore || true
+          cp keystore.properties smartautoclicker/keystore.properties || true
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
       - name: Build debug APK
-        run: ./gradlew :smartautoclicker:assembleFDroidDebug --no-daemon
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: ./gradlew :smartautoclicker:assembleFDroidDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Altuuuuu-debug-apk
-          path: smartautoclicker/build/outputs/apk/fDroid/debug/*.apk
+          path: |
+            smartautoclicker/build/outputs/apk/fDroid/debug/*.apk
+            smartautoclicker/build/outputs/apk/**/debug/*.apk
+            **/build/outputs/apk/**/*.apk

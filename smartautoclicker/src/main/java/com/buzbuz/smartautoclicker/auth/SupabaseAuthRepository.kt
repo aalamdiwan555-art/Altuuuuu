@@ -64,8 +64,9 @@ internal class SupabaseAuthRepository(context: Context) {
         }
 
         val encodedId = URLEncoder.encode(userId, Charsets.UTF_8.name())
-        val profiles = requestWithSessionRefresh(
+        val profiles = requestProfileRows(
             path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&id=eq.$encodedId&limit=1",
+            withSessionRefresh = true,
         )
         val profile = profiles.optJSONArray("data")?.optJSONObject(0)
             ?: throw AuthException("Your account profile is not available yet.")
@@ -102,9 +103,9 @@ internal class SupabaseAuthRepository(context: Context) {
     }
 
     suspend fun loadUsersForAdmin(): List<UserProfile> = withContext(Dispatchers.IO) {
-        val profiles = request(
+        val profiles = requestProfileRows(
             path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&is_admin=eq.false&order=created_at.desc",
-            token = store.accessToken,
+            withSessionRefresh = false,
         )
         val rows = profiles.optJSONArray("data") ?: JSONArray()
         buildList {
@@ -113,6 +114,24 @@ internal class SupabaseAuthRepository(context: Context) {
                     add(it.toUserProfile(fallbackEmail = it.optString("email")))
                 }
             }
+        }
+    }
+
+    private fun requestProfileRows(path: String, withSessionRefresh: Boolean): JSONObject {
+        return try {
+            if (withSessionRefresh) requestWithSessionRefresh(path)
+            else request(path = path, token = store.accessToken)
+        } catch (error: AuthException) {
+            if (
+                error.statusCode != 400 ||
+                !error.message.orEmpty().contains("subscription_days")
+            ) {
+                throw error
+            }
+
+            val legacyPath = path.replace(",subscription_days", "")
+            if (withSessionRefresh) requestWithSessionRefresh(legacyPath)
+            else request(path = legacyPath, token = store.accessToken)
         }
     }
 

@@ -40,6 +40,7 @@
     <string name="auth_expired_message">Your subscription has expired. Ask the administrator to renew your access.</string>
     <string name="auth_refresh">Check again</string>
     <string name="auth_logout">Log out</string>
+    <string name="auth_loading_session">Checking your secure session…</string>
     <string name="auth_admin_panel">Admin panel</string>
     <string name="auth_admin_title">Account approvals</string>
     <string name="auth_admin_subtitle">Review access requests and manage subscriptions.</string>

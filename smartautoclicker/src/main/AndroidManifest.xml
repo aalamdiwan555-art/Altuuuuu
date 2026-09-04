@@ -54,11 +54,14 @@
 
         <activity
             android:name="com.buzbuz.smartautoclicker.auth.AuthActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:label="@string/auth_sign_in"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name="com.buzbuz.smartautoclicker.auth.AdminActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:label="@string/auth_admin_title" />
 
         <service
             android:name="${smartAutoClickerService}"

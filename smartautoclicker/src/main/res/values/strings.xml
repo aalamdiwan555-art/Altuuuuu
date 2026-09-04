@@ -21,8 +21,13 @@
 
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_sign_up">Sign up</string>
+    <string name="auth_sign_in_subtitle">Sign in to manage and run your scenarios.</string>
+    <string name="auth_sign_up_subtitle">Create an account to request access to the app.</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
+    <string name="auth_email_required">Enter your email address.</string>
+    <string name="auth_email_invalid">Enter a valid email address.</string>
+    <string name="auth_password_too_short">Password must be at least 6 characters.</string>
     <string name="auth_submit_sign_in">Sign in</string>
     <string name="auth_submit_sign_up">Create account</string>
     <string name="auth_switch_to_sign_up">Need an account? Sign up</string>
@@ -37,7 +42,14 @@
     <string name="auth_logout">Log out</string>
     <string name="auth_admin_panel">Admin panel</string>
     <string name="auth_admin_title">Account approvals</string>
+    <string name="auth_admin_subtitle">Review access requests and manage subscriptions.</string>
+    <string name="auth_loading_users">Loading user requests…</string>
+    <string name="auth_unknown_email">Unknown email</string>
+    <string name="auth_user_status">Status: %1$s</string>
+    <string name="auth_user_subscription">Subscription: %1$s</string>
+    <string name="auth_decline_confirmation">Decline access for %1$s?</string>
     <string name="auth_no_pending_users">No user requests right now.</string>
+    <string name="auth_no_users">No user accounts found.</string>
     <string name="auth_approve">Approve</string>
     <string name="auth_decline">Decline</string>
     <string name="auth_choose_subscription">Choose subscription</string>
@@ -45,7 +57,8 @@
     <string name="auth_plan_two_days">2 days</string>
     <string name="auth_plan_three_days">3 days</string>
     <string name="auth_plan_lifetime">Lifetime</string>
-    <string name="auth_configuration_missing">Supabase is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to the GitHub Actions secrets before building.</string>
+    <string name="auth_configuration_missing_title">Sign-in is unavailable</string>
+    <string name="auth_configuration_missing">The app is missing its Supabase configuration. Add SUPABASE_URL and SUPABASE_ANON_KEY to the build environment, then install a new build.</string>
     <string name="auth_generic_error">Something went wrong. Please try again.</string>
 
     <string name="activity_scenario_title">Scenarios</string>

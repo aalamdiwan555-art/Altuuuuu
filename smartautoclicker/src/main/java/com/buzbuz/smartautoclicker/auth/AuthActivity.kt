@@ -25,6 +25,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 class AuthActivity : AppCompatActivity() {
 
@@ -43,7 +44,7 @@ class AuthActivity : AppCompatActivity() {
         lifecycleScope.launch {
             if (!repository.isConfigured) {
                 showMessage(
-                    title = getString(R.string.auth_configuration_missing),
+                    title = getString(R.string.auth_configuration_missing_title),
                     message = getString(R.string.auth_configuration_missing),
                     returnToAuthForm = false,
                 )
@@ -84,25 +85,38 @@ class AuthActivity : AppCompatActivity() {
         root = baseLayout()
         val title = TextView(this).apply {
             text = if (isSignUp) getString(R.string.auth_sign_up) else getString(R.string.auth_sign_in)
-            textSize = 28f
+            textSize = 30f
             gravity = Gravity.CENTER
         }
         root.addView(title, marginParams(bottom = 24))
 
+        root.addView(TextView(this).apply {
+            text = if (isSignUp) {
+                getString(R.string.auth_sign_up_subtitle)
+            } else {
+                getString(R.string.auth_sign_in_subtitle)
+            }
+            textSize = 16f
+            gravity = Gravity.CENTER
+        }, marginParams(bottom = 24))
+
         val email = TextInputEditText(this).apply {
-            hint = getString(R.string.auth_email)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            singleLine = true
         }
         val emailLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.auth_email)
             addView(email)
         }
         root.addView(emailLayout, marginParams(bottom = 12))
 
         val password = TextInputEditText(this).apply {
-            hint = getString(R.string.auth_password)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            singleLine = true
         }
         val passwordLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.auth_password)
+            endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
             addView(password)
         }
         root.addView(passwordLayout, marginParams(bottom = 20))
@@ -114,14 +128,22 @@ class AuthActivity : AppCompatActivity() {
         submit.setOnClickListener { view ->
             val emailValue = email.text?.toString()?.trim().orEmpty()
             val passwordValue = password.text?.toString().orEmpty()
-            if (emailValue.isBlank() || passwordValue.length < 6) {
-                emailLayout.error = if (emailValue.isBlank()) getString(R.string.auth_email) else null
-                passwordLayout.error = "Password must be at least 6 characters."
+            emailLayout.error = when {
+                emailValue.isBlank() -> getString(R.string.auth_email_required)
+                !android.util.Patterns.EMAIL_ADDRESS.matcher(emailValue).matches() ->
+                    getString(R.string.auth_email_invalid)
+                else -> null
+            }
+            passwordLayout.error = if (passwordValue.length < 6) {
+                getString(R.string.auth_password_too_short)
+            } else {
+                null
+            }
+            if (emailLayout.error != null || passwordLayout.error != null) {
                 return@setOnClickListener
             }
 
             view.isEnabled = false
-            submit.isEnabled = false
             
             lifecycleScope.launch {
                 suspendRunCatching {
@@ -129,6 +151,7 @@ class AuthActivity : AppCompatActivity() {
                     else repository.signIn(emailValue, passwordValue)
                 }.onSuccess {
                     if (isSignUp) {
+                        isSignUp = false
                         showMessage(
                             getString(R.string.auth_pending_title),
                             getString(R.string.auth_pending_message),
@@ -203,7 +226,7 @@ class AuthActivity : AppCompatActivity() {
     private fun baseLayout(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(40, 64, 40, 40)
+        setPadding(24.dp(), 32.dp(), 24.dp(), 24.dp())
     }
 
     private fun showError(error: Throwable) {
@@ -215,10 +238,13 @@ class AuthActivity : AppCompatActivity() {
     }
 
     private fun marginParams(bottom: Int): LinearLayout.LayoutParams =
-        fullWidthParams().apply { bottomMargin = bottom }
+        fullWidthParams().apply { bottomMargin = bottom.dp() }
 
     private fun fullWidthParams(): LinearLayout.LayoutParams =
         LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+
+    private fun Int.dp(): Int =
+        (this * resources.displayMetrics.density).roundToInt()
 }
 
 private suspend fun <T> suspendRunCatching(block: suspend () -> T): Result<T> =

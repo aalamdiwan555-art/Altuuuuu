@@ -31,7 +31,19 @@ create trigger on_auth_user_created
     after insert on auth.users
     for each row execute procedure public.create_profile_for_new_user();
 
+-- Backfill accounts that were created before the trigger existed. This is
+-- important for the administrator account and keeps existing users usable.
+insert into public.profiles (id, email)
+select id, coalesce(email, '')
+from auth.users
+on conflict (id) do update
+set email = excluded.email,
+    updated_at = timezone('utc', now());
+
 alter table public.profiles enable row level security;
+
+grant usage on schema public to authenticated;
+grant select on public.profiles to authenticated;
 
 create or replace function public.current_user_is_admin()
 returns boolean

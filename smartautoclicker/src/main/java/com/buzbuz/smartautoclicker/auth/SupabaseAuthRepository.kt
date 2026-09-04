@@ -55,13 +55,8 @@ internal class SupabaseAuthRepository(context: Context) {
     }
 
     suspend fun loadCurrentProfile(): UserProfile? = withContext(Dispatchers.IO) {
-        val token = store.accessToken ?: return@withContext null
-        val user = runCatching {
-            request("/auth/v1/user", token = token)
-        }.getOrElse {
-            store.clear()
-            throw it
-        }
+        if (store.accessToken == null) return@withContext null
+        val user = requestWithSessionRefresh("/auth/v1/user")
         val userId = user.optString("id")
         if (userId.isBlank()) {
             store.clear()
@@ -69,9 +64,8 @@ internal class SupabaseAuthRepository(context: Context) {
         }
 
         val encodedId = URLEncoder.encode(userId, Charsets.UTF_8.name())
-        val profiles = request(
+        val profiles = requestWithSessionRefresh(
             path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_expires_at,is_admin&id=eq.$encodedId&limit=1",
-            token = token,
         )
         val profile = profiles.optJSONArray("data")?.optJSONObject(0)
             ?: throw AuthException("Your account profile is not available yet.")
@@ -130,7 +124,46 @@ internal class SupabaseAuthRepository(context: Context) {
 
     private fun saveSessionIfPresent(response: JSONObject) {
         val accessToken = response.optString("access_token").takeIf { it.isNotBlank() } ?: return
-        store.saveSession(accessToken, response.optString("refresh_token").takeIf { it.isNotBlank() })
+        val refreshToken = response.optString("refresh_token")
+            .takeIf { it.isNotBlank() }
+            ?: store.refreshToken
+        store.saveSession(accessToken, refreshToken)
+    }
+
+    private fun requestWithSessionRefresh(path: String): JSONObject {
+        val token = store.accessToken ?: throw AuthException("Your session has expired.")
+        return try {
+            request(path = path, token = token)
+        } catch (error: AuthException) {
+            if (error.statusCode != 401 || store.refreshToken.isNullOrBlank()) {
+                store.clear()
+                throw error
+            }
+
+            try {
+                val refreshedToken = refreshAccessToken()
+                request(path = path, token = refreshedToken)
+            } catch (refreshError: Throwable) {
+                store.clear()
+                throw refreshError
+            }
+        }
+    }
+
+    private fun refreshAccessToken(): String {
+        val refreshToken = store.refreshToken
+            ?: throw AuthException("Your session has expired. Please sign in again.")
+        val response = request(
+            path = "/auth/v1/token?grant_type=refresh_token",
+            method = "POST",
+            token = null,
+            body = JSONObject()
+                .put("refresh_token", refreshToken)
+                .toString(),
+        )
+        saveSessionIfPresent(response)
+        return response.optString("access_token").takeIf { it.isNotBlank() }
+            ?: throw AuthException("Your session could not be refreshed. Please sign in again.")
     }
 
     private fun request(
@@ -165,9 +198,12 @@ internal class SupabaseAuthRepository(context: Context) {
                     JSONObject(responseText).optString("msg")
                         .ifBlank { JSONObject(responseText).optString("message") }
                         .ifBlank { JSONObject(responseText).optString("error_description") }
+                        .ifBlank { JSONObject(responseText).optString("error") }
                 }.getOrNull().orEmpty()
-                if (status == 401) store.clear()
-                throw AuthException(message.ifBlank { "Request failed with status $status." })
+                throw AuthException(
+                    message.ifBlank { "Request failed with status $status." },
+                    statusCode = status,
+                )
             }
 
             return if (responseText.isBlank()) JSONObject()
@@ -181,7 +217,10 @@ internal class SupabaseAuthRepository(context: Context) {
     }
 }
 
-internal class AuthException(message: String) : Exception(message)
+internal class AuthException(
+    message: String,
+    val statusCode: Int? = null,
+) : Exception(message)
 
 private fun JSONObject.toUserProfile(
     userId: String = optString("id"),

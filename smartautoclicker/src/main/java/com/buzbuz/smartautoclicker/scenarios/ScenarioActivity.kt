@@ -26,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 
 import com.buzbuz.smartautoclicker.R
+import com.buzbuz.smartautoclicker.auth.AdminActivity
 import com.buzbuz.smartautoclicker.auth.AuthActivity
 import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
 import com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment
@@ -58,6 +59,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     /** Scenario clicked by the user. */
     private var requestedItem: ScenarioListUiState.Item.ScenarioItem? = null
     private lateinit var authRepository: SupabaseAuthRepository
+    private var accessGranted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -71,12 +73,18 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
             } catch (_: Throwable) {
                 null
             }
+            if (profile?.isAdmin == true) {
+                startActivity(Intent(this@ScenarioActivity, AdminActivity::class.java))
+                finish()
+                return@launch
+            }
             if (profile?.hasActiveSubscription() != true) {
                 startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))
                 finish()
                 return@launch
             }
 
+            accessGranted = true
             setContentView(R.layout.activity_scenario)
             scenarioViewModel.stopScenario()
             scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
@@ -92,7 +100,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
 
     override fun onResume() {
         super.onResume()
-        scenarioViewModel.refreshPurchaseState()
+        if (accessGranted) scenarioViewModel.refreshPurchaseState()
     }
 
     override fun startScenario(item: ScenarioListUiState.Item.ScenarioItem) {

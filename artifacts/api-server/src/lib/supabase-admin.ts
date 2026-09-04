@@ -30,13 +30,16 @@ async function supabaseRequest<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const connectors = new ReplitConnectors();
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (init.body) headers.set("Content-Type", "application/json");
+  const requestHeaders: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    requestHeaders[key] = value;
+  });
   const response = await connectors.proxy("supabase", path, {
     ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
+    headers: requestHeaders,
   });
   const raw = await response.text();
   let data: unknown = null;

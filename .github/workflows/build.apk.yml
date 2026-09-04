@@ -15,29 +15,20 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: gradle
 
-      - name: Fix Gradle Version to 8.7 (Compulsory)
+      - name: Patch Kotlin compile errors for Gradle 9.5.1 + Kotlin 2.2
         run: |
-          sed -i 's|gradle-.*-bin.zip|gradle-8.7-bin.zip|g' gradle/wrapper/gradle-wrapper.properties
-          cat gradle/wrapper/gradle-wrapper.properties
-
-      - name: Patch Kotlin compile error
-        run: |
+          echo "Patching AdminActivity.kt..."
           FILE="smartautoclicker/src/main/java/com/buzbuz/smartautoclicker/auth/AdminActivity.kt"
-          if [ -f "$FILE" ]; then
-            sed -i 's/suspendRunCatching/runCatching/g' "$FILE"
-          fi
-          # AuthActivity submit fix
-          FILE2="smartautoclicker/src/main/java/com/buzbuz/smartautoclicker/auth/AuthActivity.kt"
-          if [ -f "$FILE2" ]; then
-            sed -i 's/\.submit(/\.setValue(/g' "$FILE2" || true
-          fi
+          # suspendRunCatching is now private in Kotlin 2.2, replace with runCatching
+          sed -i 's/suspendRunCatching/runCatching/g' "$FILE"
+          cat "$FILE" | grep -n "runCatching"
 
       - name: Create Debug Keystore
         run: |
@@ -46,6 +37,8 @@ jobs:
           echo "storePassword=android" >> keystore.properties
           echo "keyAlias=androiddebugkey" >> keystore.properties
           echo "keyPassword=android" >> keystore.properties
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
           cp debug.keystore smartautoclicker/debug.keystore || true
           cp keystore.properties smartautoclicker/keystore.properties || true
 

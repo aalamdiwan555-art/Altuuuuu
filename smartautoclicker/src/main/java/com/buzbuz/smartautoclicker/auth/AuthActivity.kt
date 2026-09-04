@@ -102,7 +102,7 @@ class AuthActivity : AppCompatActivity() {
 
         val email = TextInputEditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-            singleLine = true
+            setSingleLine(true)
         }
         val emailLayout = TextInputLayout(this).apply {
             hint = getString(R.string.auth_email)
@@ -112,7 +112,7 @@ class AuthActivity : AppCompatActivity() {
 
         val password = TextInputEditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            singleLine = true
+            setSingleLine(true)
         }
         val passwordLayout = TextInputLayout(this).apply {
             hint = getString(R.string.auth_password)

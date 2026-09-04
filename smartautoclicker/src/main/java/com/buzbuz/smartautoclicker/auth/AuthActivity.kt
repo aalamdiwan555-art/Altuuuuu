@@ -8,6 +8,7 @@
 package com.buzbuz.smartautoclicker.auth
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -41,6 +42,7 @@ class AuthActivity : AppCompatActivity() {
     }
 
     private fun refreshSession() {
+        showLoading()
         lifecycleScope.launch {
             if (!repository.isConfigured) {
                 showMessage(
@@ -53,40 +55,53 @@ class AuthActivity : AppCompatActivity() {
 
             suspendRunCatching { repository.loadCurrentProfile() }
                 .onSuccess { profile ->
-                    when {
-                        profile == null -> showAuthForm()
-                        profile.isAdmin -> {
-                            startActivity(Intent(this@AuthActivity, AdminActivity::class.java))
-                            finish()
-                        }
-                        profile.hasActiveSubscription() -> {
-                            startActivity(Intent(this@AuthActivity, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
-                            finish()
-                        }
-                        profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
-                            getString(R.string.auth_pending_title),
-                            getString(R.string.auth_pending_message),
-                        )
-                        profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
-                            getString(R.string.auth_declined_title),
-                            getString(R.string.auth_declined_message),
-                        )
-                        else -> showMessage(
-                            getString(R.string.auth_expired_title),
-                            getString(R.string.auth_expired_message),
-                        )
-                    }
+                    routeProfile(profile)
                 }
                 .onFailure { showMessage(getString(R.string.auth_generic_error), it.message ?: "") }
         }
     }
 
+    private fun routeProfile(profile: UserProfile?) {
+        when {
+            profile == null -> showAuthForm()
+            profile.isAdmin -> {
+                startActivity(Intent(this, AdminActivity::class.java))
+                finish()
+            }
+            profile.hasActiveSubscription() -> {
+                startActivity(Intent(this, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
+                finish()
+            }
+            profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
+                getString(R.string.auth_pending_title),
+                getString(R.string.auth_pending_message),
+            )
+            profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
+                getString(R.string.auth_declined_title),
+                getString(R.string.auth_declined_message),
+            )
+            else -> showMessage(
+                getString(R.string.auth_expired_title),
+                getString(R.string.auth_expired_message),
+            )
+        }
+    }
+
     private fun showAuthForm() {
-        root = baseLayout()
+        root = baseLayout().apply {
+            setBackgroundColor(Color.rgb(247, 244, 238))
+        }
+        root.addView(TextView(this).apply {
+            text = "ALTUUUUU"
+            textSize = 12f
+            letterSpacing = 0.28f
+            setTextColor(Color.rgb(45, 117, 91))
+        }, marginParams(bottom = 18))
         val title = TextView(this).apply {
             text = if (isSignUp) getString(R.string.auth_sign_up) else getString(R.string.auth_sign_in)
             textSize = 30f
             gravity = Gravity.CENTER
+            setTextColor(Color.rgb(31, 54, 62))
         }
         root.addView(title, marginParams(bottom = 24))
 
@@ -123,6 +138,9 @@ class AuthActivity : AppCompatActivity() {
 
         val submit = Button(this).apply {
             text = if (isSignUp) getString(R.string.auth_submit_sign_up) else getString(R.string.auth_submit_sign_in)
+            isAllCaps = false
+            textSize = 15f
+            minHeight = 54.dp()
         }
         
         submit.setOnClickListener { view ->
@@ -146,21 +164,32 @@ class AuthActivity : AppCompatActivity() {
             view.isEnabled = false
             
             lifecycleScope.launch {
-                suspendRunCatching {
-                    if (isSignUp) repository.signUp(emailValue, passwordValue)
-                    else repository.signIn(emailValue, passwordValue)
-                }.onSuccess {
-                    if (isSignUp) {
-                        isSignUp = false
-                        showMessage(
-                            getString(R.string.auth_pending_title),
-                            getString(R.string.auth_pending_message),
-                        )
-                    } else refreshSession()
-                }.onFailure {
-                    view.isEnabled = true
-                    submit.isEnabled = true
-                    showError(it)
+                if (isSignUp) {
+                    suspendRunCatching { repository.signUp(emailValue, passwordValue) }
+                        .onSuccess {
+                            isSignUp = false
+                            showMessage(
+                                getString(R.string.auth_pending_title),
+                                getString(R.string.auth_pending_message),
+                            )
+                        }
+                        .onFailure {
+                            view.isEnabled = true
+                            submit.isEnabled = true
+                            showError(it)
+                        }
+                } else {
+                    suspendRunCatching { repository.signIn(emailValue, passwordValue) }
+                        .onSuccess { profile ->
+                            // Route using the profile returned by sign-in. This avoids a
+                            // second session request while the activity is transitioning.
+                            routeProfile(profile)
+                        }
+                        .onFailure {
+                            view.isEnabled = true
+                            submit.isEnabled = true
+                            showError(it)
+                        }
                 }
             }
         }
@@ -168,17 +197,25 @@ class AuthActivity : AppCompatActivity() {
 
         val switchMode = Button(this).apply {
             text = if (isSignUp) getString(R.string.auth_switch_to_sign_in) else getString(R.string.auth_switch_to_sign_up)
+            isAllCaps = false
+            minHeight = 48.dp()
             setOnClickListener {
                 isSignUp = !isSignUp
                 showAuthForm()
             }
         }
         root.addView(switchMode, fullWidthParams())
-        setContentView(ScrollView(this).apply { addView(root) })
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(Color.rgb(247, 244, 238))
+            addView(root)
+        })
     }
 
     private fun showMessage(title: String, message: String, returnToAuthForm: Boolean = true) {
-        root = baseLayout()
+        root = baseLayout().apply {
+            setBackgroundColor(Color.rgb(247, 244, 238))
+        }
         root.addView(TextView(this).apply {
             text = title
             textSize = 26f
@@ -209,17 +246,33 @@ class AuthActivity : AppCompatActivity() {
             }
         }
         root.addView(logout, fullWidthParams())
-        setContentView(ScrollView(this).apply { addView(root) })
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(Color.rgb(247, 244, 238))
+            addView(root)
+        })
     }
 
     private fun showLoading() {
         setContentView(FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(247, 244, 238))
             addView(ProgressBar(this@AuthActivity).apply {
                 isIndeterminate = true
             }, FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
             ).apply { gravity = Gravity.CENTER })
+            addView(TextView(this@AuthActivity).apply {
+                text = getString(R.string.auth_loading_session)
+                textSize = 14f
+                setTextColor(Color.rgb(89, 105, 103))
+            }, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                gravity = Gravity.CENTER
+                topMargin = 72.dp()
+            })
         })
     }
 

@@ -19,6 +19,35 @@
 
     <string name="app_name" translatable="false">Klick\'r</string>
 
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_sign_up">Sign up</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_submit_sign_in">Sign in</string>
+    <string name="auth_submit_sign_up">Create account</string>
+    <string name="auth_switch_to_sign_up">Need an account? Sign up</string>
+    <string name="auth_switch_to_sign_in">Already have an account? Sign in</string>
+    <string name="auth_pending_title">Waiting for approval</string>
+    <string name="auth_pending_message">Your account is waiting for admin approval. Check again later.</string>
+    <string name="auth_declined_title">Account declined</string>
+    <string name="auth_declined_message">Your account was declined. Contact the administrator if this is unexpected.</string>
+    <string name="auth_expired_title">Renew subscription</string>
+    <string name="auth_expired_message">Your subscription has expired. Ask the administrator to renew your access.</string>
+    <string name="auth_refresh">Check again</string>
+    <string name="auth_logout">Log out</string>
+    <string name="auth_admin_panel">Admin panel</string>
+    <string name="auth_admin_title">Account approvals</string>
+    <string name="auth_no_pending_users">No user requests right now.</string>
+    <string name="auth_approve">Approve</string>
+    <string name="auth_decline">Decline</string>
+    <string name="auth_choose_subscription">Choose subscription</string>
+    <string name="auth_plan_one_day">1 day</string>
+    <string name="auth_plan_two_days">2 days</string>
+    <string name="auth_plan_three_days">3 days</string>
+    <string name="auth_plan_lifetime">Lifetime</string>
+    <string name="auth_configuration_missing">Supabase is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to the GitHub Actions secrets before building.</string>
+    <string name="auth_generic_error">Something went wrong. Please try again.</string>
+
     <string name="activity_scenario_title">Scenarios</string>
     <string name="accessibility_service_description">This application needs this service to inject the clicks you have
         created into the other applications once the conditions have been detected.\n\nNo data will be collected from

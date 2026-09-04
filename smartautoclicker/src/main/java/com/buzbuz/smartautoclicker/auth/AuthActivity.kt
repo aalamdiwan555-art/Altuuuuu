@@ -109,31 +109,35 @@ class AuthActivity : AppCompatActivity() {
 
         val submit = Button(this).apply {
             text = if (isSignUp) getString(R.string.auth_submit_sign_up) else getString(R.string.auth_submit_sign_in)
-            setOnClickListener {
-                val emailValue = email.text?.toString()?.trim().orEmpty()
-                val passwordValue = password.text?.toString().orEmpty()
-                if (emailValue.isBlank() || passwordValue.length < 6) {
-                    emailLayout.error = if (emailValue.isBlank()) getString(R.string.auth_email) else null
-                    passwordLayout.error = "Password must be at least 6 characters."
-                    return@setOnClickListener
-                }
+        }
+        
+        submit.setOnClickListener { view ->
+            val emailValue = email.text?.toString()?.trim().orEmpty()
+            val passwordValue = password.text?.toString().orEmpty()
+            if (emailValue.isBlank() || passwordValue.length < 6) {
+                emailLayout.error = if (emailValue.isBlank()) getString(R.string.auth_email) else null
+                passwordLayout.error = "Password must be at least 6 characters."
+                return@setOnClickListener
+            }
 
-                submit.isEnabled = false
-                lifecycleScope.launch {
-                    suspendRunCatching {
-                        if (isSignUp) repository.signUp(emailValue, passwordValue)
-                        else repository.signIn(emailValue, passwordValue)
-                    }.onSuccess {
-                        if (isSignUp) {
-                            showMessage(
-                                getString(R.string.auth_pending_title),
-                                getString(R.string.auth_pending_message),
-                            )
-                        } else refreshSession()
-                    }.onFailure {
-                        submit.isEnabled = true
-                        showError(it)
-                    }
+            view.isEnabled = false
+            submit.isEnabled = false
+            
+            lifecycleScope.launch {
+                suspendRunCatching {
+                    if (isSignUp) repository.signUp(emailValue, passwordValue)
+                    else repository.signIn(emailValue, passwordValue)
+                }.onSuccess {
+                    if (isSignUp) {
+                        showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                    } else refreshSession()
+                }.onFailure {
+                    view.isEnabled = true
+                    submit.isEnabled = true
+                    showError(it)
                 }
             }
         }

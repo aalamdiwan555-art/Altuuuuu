@@ -4,6 +4,7 @@
 package com.buzbuz.smartautoclicker.auth
 
 import android.content.DialogInterface
+import android.graphics.Color
 import android.os.Bundle
 import android.text.format.DateFormat
 import android.text.InputType
@@ -39,27 +40,38 @@ class AdminActivity : AppCompatActivity() {
     private fun buildShell() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24.dp(), 32.dp(), 24.dp(), 24.dp())
+            setPadding(20.dp(), 28.dp(), 20.dp(), 24.dp())
+            setBackgroundColor(Color.rgb(247, 244, 238))
         }
+        root.addView(TextView(this).apply {
+            text = "ALTUUUUU  /  CONTROL ROOM"
+            textSize = 11f
+            letterSpacing = 0.18f
+            setTextColor(Color.rgb(45, 117, 91))
+        }, params(12))
         root.addView(TextView(this).apply {
             text = getString(R.string.auth_admin_title)
             textSize = 28f
             gravity = Gravity.CENTER
+            setTextColor(Color.rgb(31, 54, 62))
         }, params(8))
         root.addView(TextView(this).apply {
             text = getString(R.string.auth_admin_subtitle)
             textSize = 15f
             gravity = Gravity.CENTER
+            setTextColor(Color.rgb(89, 105, 103))
         }, params(20))
 
         val actions = LinearLayout(this).apply { gravity = Gravity.CENTER }
         refreshButton = Button(this).apply {
             text = getString(R.string.auth_refresh)
+            isAllCaps = false
             setOnClickListener { verifyAdminAndLoadUsers() }
         }
         actions.addView(refreshButton, weightedButtonParams())
         actions.addView(Button(this).apply {
             text = getString(R.string.auth_logout)
+            isAllCaps = false
             setOnClickListener {
                 lifecycleScope.launch {
                     suspendRunCatching { repository.signOut() }
@@ -144,21 +156,32 @@ class AdminActivity : AppCompatActivity() {
         cardContent.addView(TextView(this).apply {
             text = profile.email.ifBlank { getString(R.string.auth_unknown_email) }
             textSize = 17f
+            setTextColor(Color.rgb(31, 54, 62))
         })
         cardContent.addView(TextView(this).apply {
             text = getString(R.string.auth_user_status, profile.approvalStatus.name)
+            setTextColor(
+                when (profile.approvalStatus) {
+                    ApprovalStatus.PENDING -> Color.rgb(142, 101, 35)
+                    ApprovalStatus.APPROVED -> Color.rgb(37, 119, 91)
+                    ApprovalStatus.DECLINED -> Color.rgb(163, 83, 73)
+                },
+            )
         }, params(6))
         cardContent.addView(TextView(this).apply {
             text = getString(R.string.auth_user_subscription, subscriptionText(profile))
+            setTextColor(Color.rgb(89, 105, 103))
         }, params(4))
 
         val actions = LinearLayout(this).apply { gravity = Gravity.END }
         actions.addView(Button(this).apply {
             text = getString(R.string.auth_approve)
+            isAllCaps = false
             setOnClickListener { showPlanPicker(profile, this) }
         }, weightedButtonParams())
         actions.addView(Button(this).apply {
             text = getString(R.string.auth_decline)
+            isAllCaps = false
             setOnClickListener { confirmDecline(profile, this) }
         }, weightedButtonParams())
         cardContent.addView(actions, params(12))
@@ -166,6 +189,11 @@ class AdminActivity : AppCompatActivity() {
         val card = MaterialCardView(this).apply {
             addView(cardContent)
             contentDescription = profile.email
+            radius = 20.dp().toFloat()
+            cardElevation = 0f
+            strokeWidth = 1.dp()
+            strokeColor = Color.rgb(222, 217, 207)
+            setCardBackgroundColor(Color.rgb(253, 251, 247))
         }
         usersContainer.addView(card, params(12))
     }
@@ -270,6 +298,7 @@ class AdminActivity : AppCompatActivity() {
             text = message
             textSize = 16f
             gravity = Gravity.CENTER
+            setTextColor(Color.rgb(89, 105, 103))
         }, params(24))
     }
 

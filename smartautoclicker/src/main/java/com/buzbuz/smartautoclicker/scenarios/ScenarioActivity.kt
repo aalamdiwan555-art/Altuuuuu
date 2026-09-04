@@ -65,6 +65,8 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        mediaProjectionRequest.registerForActivityResult(this@ScenarioActivity)
+
         authRepository = SupabaseAuthRepository(this)
         setContentView(R.layout.auth_loading)
 
@@ -100,7 +102,6 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         scenarioViewModel.stopScenario()
         scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
 
-        mediaProjectionRequest.registerForActivityResult(this@ScenarioActivity)
 
         // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
         findViewById<View>(android.R.id.content).delayDrawUntil {

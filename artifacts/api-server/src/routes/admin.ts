@@ -215,7 +215,11 @@ router.post(
     const body = ApproveAdminUserBody.safeParse(req.body);
     if (!params.success || !body.success) {
       res.status(400).json({
-        error: !params.success ? params.error.message : body.error.message,
+        error: !params.success
+          ? params.error.message
+          : !body.success
+            ? body.error.message
+            : "Invalid approval request.",
       });
       return;
     }

@@ -7,159 +7,220 @@
  */
 package com.buzbuz.smartautoclicker.auth
 
+import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.buzbuz.smartautoclicker.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 
-class AdminActivity : AppCompatActivity() {
+class AuthActivity : AppCompatActivity() {
 
     private lateinit var repository: SupabaseAuthRepository
     private lateinit var root: LinearLayout
-    private lateinit var statusText: TextView
+    private var isSignUp = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SupabaseAuthRepository(this)
-        showAdminPanel()
+        showLoading()
+        refreshSession()
     }
 
-    private fun showAdminPanel() {
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 64, 40, 40)
-        }
+    private fun refreshSession() {
+        lifecycleScope.launch {
+            if (!repository.isConfigured) {
+                showMessage(
+                    title = getString(R.string.auth_configuration_missing),
+                    message = getString(R.string.auth_configuration_missing),
+                    returnToAuthForm = false,
+                )
+                return@launch
+            }
 
+            suspendRunCatching { repository.loadCurrentProfile() }
+                .onSuccess { profile ->
+                    when {
+                        profile == null -> showAuthForm()
+                        profile.isAdmin -> {
+                            startActivity(Intent(this@AuthActivity, AdminActivity::class.java))
+                            finish()
+                        }
+                        profile.hasActiveSubscription() -> {
+                            startActivity(Intent(this@AuthActivity, com.buzbuz.smartautoclicker.scenarios.ScenarioActivity::class.java))
+                            finish()
+                        }
+                        profile.approvalStatus == ApprovalStatus.PENDING -> showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                        profile.approvalStatus == ApprovalStatus.DECLINED -> showMessage(
+                            getString(R.string.auth_declined_title),
+                            getString(R.string.auth_declined_message),
+                        )
+                        else -> showMessage(
+                            getString(R.string.auth_expired_title),
+                            getString(R.string.auth_expired_message),
+                        )
+                    }
+                }
+                .onFailure { showMessage(getString(R.string.auth_generic_error), it.message ?: "") }
+        }
+    }
+
+    private fun showAuthForm() {
+        root = baseLayout()
         val title = TextView(this).apply {
-            text = "Admin Panel"
+            text = if (isSignUp) getString(R.string.auth_sign_up) else getString(R.string.auth_sign_in)
             textSize = 28f
             gravity = Gravity.CENTER
         }
-        root.addView(title, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = 24 })
+        root.addView(title, marginParams(bottom = 24))
 
-        statusText = TextView(this).apply {
-            text = "Loading users..."
+        val email = TextInputEditText(this).apply {
+            hint = getString(R.string.auth_email)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        val emailLayout = TextInputLayout(this).apply {
+            addView(email)
+        }
+        root.addView(emailLayout, marginParams(bottom = 12))
+
+        val password = TextInputEditText(this).apply {
+            hint = getString(R.string.auth_password)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val passwordLayout = TextInputLayout(this).apply {
+            addView(password)
+        }
+        root.addView(passwordLayout, marginParams(bottom = 20))
+
+        val submit = Button(this).apply {
+            text = if (isSignUp) getString(R.string.auth_submit_sign_up) else getString(R.string.auth_submit_sign_in)
+        }
+        
+        submit.setOnClickListener { view ->
+            val emailValue = email.text?.toString()?.trim().orEmpty()
+            val passwordValue = password.text?.toString().orEmpty()
+            if (emailValue.isBlank() || passwordValue.length < 6) {
+                emailLayout.error = if (emailValue.isBlank()) getString(R.string.auth_email) else null
+                passwordLayout.error = "Password must be at least 6 characters."
+                return@setOnClickListener
+            }
+
+            view.isEnabled = false
+            submit.isEnabled = false
+            
+            lifecycleScope.launch {
+                suspendRunCatching {
+                    if (isSignUp) repository.signUp(emailValue, passwordValue)
+                    else repository.signIn(emailValue, passwordValue)
+                }.onSuccess {
+                    if (isSignUp) {
+                        showMessage(
+                            getString(R.string.auth_pending_title),
+                            getString(R.string.auth_pending_message),
+                        )
+                    } else refreshSession()
+                }.onFailure {
+                    view.isEnabled = true
+                    submit.isEnabled = true
+                    showError(it)
+                }
+            }
+        }
+        root.addView(submit, fullWidthParams())
+
+        val switchMode = Button(this).apply {
+            text = if (isSignUp) getString(R.string.auth_switch_to_sign_in) else getString(R.string.auth_switch_to_sign_up)
+            setOnClickListener {
+                isSignUp = !isSignUp
+                showAuthForm()
+            }
+        }
+        root.addView(switchMode, fullWidthParams())
+        setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun showMessage(title: String, message: String, returnToAuthForm: Boolean = true) {
+        root = baseLayout()
+        root.addView(TextView(this).apply {
+            text = title
+            textSize = 26f
+            gravity = Gravity.CENTER
+        }, marginParams(bottom = 18))
+        root.addView(TextView(this).apply {
+            text = message
             textSize = 16f
             gravity = Gravity.CENTER
-        }
-        root.addView(statusText, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = 20 })
+        }, marginParams(bottom = 24))
 
-        val refreshBtn = Button(this).apply {
-            text = "Refresh Pending Users"
-            setOnClickListener { loadPendingUsers() }
+        val refresh = Button(this).apply {
+            text = getString(R.string.auth_refresh)
+            setOnClickListener {
+                showLoading()
+                refreshSession()
+            }
         }
-        root.addView(refreshBtn)
+        root.addView(refresh, fullWidthParams())
 
-        val logoutBtn = Button(this).apply {
+        val logout = Button(this).apply {
             text = getString(R.string.auth_logout)
             setOnClickListener {
                 lifecycleScope.launch {
                     suspendRunCatching { repository.signOut() }
-                    finish()
+                    if (returnToAuthForm) showAuthForm() else finish()
                 }
             }
         }
-        root.addView(logoutBtn)
-
+        root.addView(logout, fullWidthParams())
         setContentView(ScrollView(this).apply { addView(root) })
-        loadPendingUsers()
     }
 
-    private fun loadPendingUsers() {
-        statusText.text = "Loading..."
-        lifecycleScope.launch {
-            suspendRunCatching { repository.getPendingUsers() }
-                .onSuccess { users ->
-                    if (users.isEmpty()) {
-                        statusText.text = "No pending users"
-                        return@onSuccess
-                    }
-                    statusText.text = "Found ${users.size} pending users:"
-                    
-                    // Remove old user views
-                    while (root.childCount > 3) {
-                        root.removeViewAt(3)
-                    }
-
-                    users.forEach { profile ->
-                        val userLayout = LinearLayout(this@AdminActivity).apply {
-                            orientation = LinearLayout.VERTICAL
-                            setPadding(20, 20, 20, 20)
-                        }
-
-                        val emailText = TextView(this@AdminActivity).apply {
-                            text = "${profile.email}\nStatus: ${profile.approvalStatus}"
-                            textSize = 14f
-                        }
-                        userLayout.addView(emailText)
-
-                        val buttonRow = LinearLayout(this@AdminActivity).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                        }
-
-                        val approveBtn = Button(this@AdminActivity).apply {
-                            text = "Approve"
-                            setOnClickListener {
-                                lifecycleScope.launch {
-                                    suspendRunCatching { repository.approveUser(profile.id) }
-                                        .onSuccess {
-                                            showMessage("Approved ${profile.email}")
-                                            loadPendingUsers()
-                                        }
-                                        .onFailure { showMessage("Failed: ${it.message}") }
-                                }
-                            }
-                        }
-                        buttonRow.addView(approveBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-
-                        val declineBtn = Button(this@AdminActivity).apply {
-                            text = "Decline"
-                            setOnClickListener {
-                                lifecycleScope.launch {
-                                    suspendRunCatching { repository.declineUser(profile.id) }
-                                        .onSuccess {
-                                            showMessage("Declined ${profile.email}")
-                                            loadPendingUsers()
-                                        }
-                                        .onFailure { showMessage("Failed: ${it.message}") }
-                                }
-                            }
-                        }
-                        buttonRow.addView(declineBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-
-                        userLayout.addView(buttonRow)
-                        root.addView(userLayout)
-                    }
-                }
-                .onFailure {
-                    statusText.text = "Error: ${it.message}"
-                }
-        }
+    private fun showLoading() {
+        setContentView(FrameLayout(this).apply {
+            addView(ProgressBar(this@AuthActivity).apply {
+                isIndeterminate = true
+            }, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { gravity = Gravity.CENTER })
+        })
     }
 
-    private fun showMessage(msg: String) {
+    private fun baseLayout(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(40, 64, 40, 40)
+    }
+
+    private fun showError(error: Throwable) {
         MaterialAlertDialogBuilder(this)
-            .setMessage(msg)
+            .setTitle(getString(R.string.auth_generic_error))
+            .setMessage(error.message ?: getString(R.string.auth_generic_error))
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }
+
+    private fun marginParams(bottom: Int): LinearLayout.LayoutParams =
+        fullWidthParams().apply { bottomMargin = bottom }
+
+    private fun fullWidthParams(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
 }
 
-// FIX for Kotlin 2.2 / Gradle 9.5.1 - suspendRunCatching is now private in stdlib
-// We define our own local version, same as in AuthActivity.kt
 private suspend fun <T> suspendRunCatching(block: suspend () -> T): Result<T> =
     try {
         Result.success(block())

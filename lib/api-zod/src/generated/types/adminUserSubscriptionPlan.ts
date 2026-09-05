@@ -15,4 +15,5 @@ export const AdminUserSubscriptionPlan = {
   TWO_DAYS: 'TWO_DAYS',
   THREE_DAYS: 'THREE_DAYS',
   LIFETIME: 'LIFETIME',
+  CUSTOM: 'CUSTOM',
 } as const;

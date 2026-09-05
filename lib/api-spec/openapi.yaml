@@ -181,7 +181,7 @@ components:
           minLength: 6
     AdminUser:
       type: object
-      required: [id, email, approvalStatus, subscriptionPlan, subscriptionExpiresAt, isAdmin, createdAt]
+      required: [id, email, approvalStatus, subscriptionPlan, subscriptionDays, subscriptionExpiresAt, isAdmin, createdAt]
       properties:
         id:
           type: string
@@ -193,7 +193,11 @@ components:
           enum: [PENDING, APPROVED, DECLINED]
         subscriptionPlan:
           type: string
-          enum: [NONE, ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME]
+          enum: [NONE, ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME, CUSTOM]
+        subscriptionDays:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 365
         subscriptionExpiresAt:
           type: ["string", "null"]
           format: date-time
@@ -226,5 +230,9 @@ components:
       properties:
         plan:
           type: string
-          enum: [ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME]
+          enum: [ONE_DAY, TWO_DAYS, THREE_DAYS, LIFETIME, CUSTOM]
+        customDays:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 365
 

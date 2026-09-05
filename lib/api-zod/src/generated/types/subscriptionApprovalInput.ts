@@ -9,4 +9,10 @@ import type { SubscriptionApprovalInputPlan } from './subscriptionApprovalInputP
 
 export interface SubscriptionApprovalInput {
   plan: SubscriptionApprovalInputPlan;
+  /**
+     * @minimum 1
+     * @maximum 365
+     * @nullable
+     */
+  customDays?: number | null;
 }

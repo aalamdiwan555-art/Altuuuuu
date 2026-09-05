@@ -43,6 +43,7 @@ function toAdminUser(profile: SupabaseProfile) {
     email: profile.email,
     approvalStatus: profile.approval_status,
     subscriptionPlan: profile.subscription_plan,
+    subscriptionDays: profile.subscription_days ?? null,
     subscriptionExpiresAt: profile.subscription_expires_at,
     isAdmin: profile.is_admin,
     createdAt: profile.created_at,
@@ -227,7 +228,12 @@ router.post(
 
     try {
       const updated =
-        (await approveProfile(admin.accessToken, params.data.userId, body.data.plan)) ??
+        (await approveProfile(
+          admin.accessToken,
+          params.data.userId,
+          body.data.plan,
+          body.data.customDays,
+        )) ??
         (await getProfile(admin.accessToken, params.data.userId));
       if (!updated) {
         res.status(404).json({ error: "User account not found." });

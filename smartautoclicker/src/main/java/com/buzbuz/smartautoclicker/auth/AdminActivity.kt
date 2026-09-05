@@ -6,8 +6,10 @@ package com.buzbuz.smartautoclicker.auth
 import android.content.DialogInterface
 import android.graphics.Color
 import android.os.Bundle
-import android.text.format.DateFormat
 import android.text.InputType
+import android.text.format.DateFormat
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -18,8 +20,6 @@ import androidx.lifecycle.lifecycleScope
 import com.buzbuz.smartautoclicker.R
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.math.roundToInt

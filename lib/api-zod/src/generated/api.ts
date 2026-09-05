@@ -29,12 +29,17 @@ export const AdminLoginBody = zod.object({
   "password": zod.string().min(adminLoginBodyPasswordMin)
 })
 
+export const adminLoginResponseAdminSubscriptionDaysMax = 365;
+
+
+
 export const AdminLoginResponse = zod.object({
   "admin": zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
   "approvalStatus": zod.enum(['PENDING', 'APPROVED', 'DECLINED']),
-  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME']),
+  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "subscriptionDays": zod.number().int().min(1).max(adminLoginResponseAdminSubscriptionDaysMax).nullable(),
   "subscriptionExpiresAt": zod.coerce.date().nullable(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -51,12 +56,17 @@ export const AdminLogoutResponse = zod.void()
 /**
  * @summary Get the current administrator session
  */
+export const getAdminSessionResponseAdminSubscriptionDaysMax = 365;
+
+
+
 export const GetAdminSessionResponse = zod.object({
   "admin": zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
   "approvalStatus": zod.enum(['PENDING', 'APPROVED', 'DECLINED']),
-  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME']),
+  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "subscriptionDays": zod.number().int().min(1).max(getAdminSessionResponseAdminSubscriptionDaysMax).nullable(),
   "subscriptionExpiresAt": zod.coerce.date().nullable(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -84,11 +94,16 @@ export const ListAdminUsersQueryParams = zod.object({
   "status": zod.enum(['ALL', 'PENDING', 'APPROVED', 'DECLINED']).default(listAdminUsersQueryStatusDefault)
 })
 
+export const listAdminUsersResponseSubscriptionDaysMax = 365;
+
+
+
 export const ListAdminUsersResponseItem = zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
   "approvalStatus": zod.enum(['PENDING', 'APPROVED', 'DECLINED']),
-  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME']),
+  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "subscriptionDays": zod.number().int().min(1).max(listAdminUsersResponseSubscriptionDaysMax).nullable(),
   "subscriptionExpiresAt": zod.coerce.date().nullable(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -103,15 +118,25 @@ export const ApproveAdminUserParams = zod.object({
   "userId": zod.coerce.string().uuid()
 })
 
+export const approveAdminUserBodyCustomDaysMax = 365;
+
+
+
 export const ApproveAdminUserBody = zod.object({
-  "plan": zod.enum(['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME'])
+  "plan": zod.enum(['ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "customDays": zod.number().int().min(1).max(approveAdminUserBodyCustomDaysMax).nullish()
 })
+
+export const approveAdminUserResponseSubscriptionDaysMax = 365;
+
+
 
 export const ApproveAdminUserResponse = zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
   "approvalStatus": zod.enum(['PENDING', 'APPROVED', 'DECLINED']),
-  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME']),
+  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "subscriptionDays": zod.number().int().min(1).max(approveAdminUserResponseSubscriptionDaysMax).nullable(),
   "subscriptionExpiresAt": zod.coerce.date().nullable(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -125,11 +150,16 @@ export const DeclineAdminUserParams = zod.object({
   "userId": zod.coerce.string().uuid()
 })
 
+export const declineAdminUserResponseSubscriptionDaysMax = 365;
+
+
+
 export const DeclineAdminUserResponse = zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
   "approvalStatus": zod.enum(['PENDING', 'APPROVED', 'DECLINED']),
-  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME']),
+  "subscriptionPlan": zod.enum(['NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM']),
+  "subscriptionDays": zod.number().int().min(1).max(declineAdminUserResponseSubscriptionDaysMax).nullable(),
   "subscriptionExpiresAt": zod.coerce.date().nullable(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.coerce.date()

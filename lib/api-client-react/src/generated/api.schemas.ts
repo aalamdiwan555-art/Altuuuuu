@@ -33,6 +33,7 @@ export const AdminUserSubscriptionPlan = {
   TWO_DAYS: 'TWO_DAYS',
   THREE_DAYS: 'THREE_DAYS',
   LIFETIME: 'LIFETIME',
+  CUSTOM: 'CUSTOM',
 } as const;
 
 export interface AdminUser {
@@ -40,6 +41,12 @@ export interface AdminUser {
   email: string;
   approvalStatus: AdminUserApprovalStatus;
   subscriptionPlan: AdminUserSubscriptionPlan;
+  /**
+     * @minimum 1
+     * @maximum 365
+     * @nullable
+     */
+  subscriptionDays: number | null;
   /** @nullable */
   subscriptionExpiresAt: string | null;
   isAdmin: boolean;
@@ -65,10 +72,17 @@ export const SubscriptionApprovalInputPlan = {
   TWO_DAYS: 'TWO_DAYS',
   THREE_DAYS: 'THREE_DAYS',
   LIFETIME: 'LIFETIME',
+  CUSTOM: 'CUSTOM',
 } as const;
 
 export interface SubscriptionApprovalInput {
   plan: SubscriptionApprovalInputPlan;
+  /**
+     * @minimum 1
+     * @maximum 365
+     * @nullable
+     */
+  customDays?: number | null;
 }
 
 export type ListAdminUsersParams = {

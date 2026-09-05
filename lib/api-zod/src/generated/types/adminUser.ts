@@ -13,6 +13,12 @@ export interface AdminUser {
   email: string;
   approvalStatus: AdminUserApprovalStatus;
   subscriptionPlan: AdminUserSubscriptionPlan;
+  /**
+     * @minimum 1
+     * @maximum 365
+     * @nullable
+     */
+  subscriptionDays: number | null;
   /** @nullable */
   subscriptionExpiresAt: Date | null;
   isAdmin: boolean;

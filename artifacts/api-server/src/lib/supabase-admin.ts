@@ -178,13 +178,19 @@ export async function approveProfile(
   accessToken: string,
   userId: string,
   plan: string,
+  customDays?: number | null,
 ): Promise<SupabaseProfile | null> {
+  const body: { target_user_id: string; plan: string; custom_days?: number } = {
+    target_user_id: userId,
+    plan,
+  };
+  if (customDays != null) body.custom_days = customDays;
   const result = await supabaseRequest<SupabaseProfile | SupabaseProfile[]>(
     "/rest/v1/rpc/admin_set_subscription",
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ target_user_id: userId, plan }),
+      body: JSON.stringify(body),
     },
   );
   return Array.isArray(result) ? result[0] ?? null : result;

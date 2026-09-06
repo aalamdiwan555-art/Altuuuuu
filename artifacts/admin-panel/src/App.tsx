@@ -126,7 +126,7 @@ function LoginPage({ onLoggedIn }: { onLoggedIn: (session: AdminSession) => void
             </p>
           </div>
           <div className="flex items-center justify-between border-t border-white/10 pt-5 text-[11px] text-[#94aaa8]">
-            <span>ALTUUUUU / ADMIN</span>
+            <span>AUTOPILOT / ADMIN</span>
             <span className="font-mono-ui">v1.0.4</span>
           </div>
         </section>
@@ -332,7 +332,7 @@ function Workspace({ adminEmail, onLogout }: { adminEmail: string; onLogout: () 
                   </div>
                 )}
               </section>
-              <div className="mt-5 flex items-center justify-between px-1 font-mono-ui text-[10px] tracking-[.08em] text-[#8b9590]"><span>ALTUUUUU / ACCESS CONTROL</span><span>DATA REFRESHES ON ACTION</span></div>
+              <div className="mt-5 flex items-center justify-between px-1 font-mono-ui text-[10px] tracking-[.08em] text-[#8b9590]"><span>AUTOPILOT / ACCESS CONTROL</span><span>DATA REFRESHES ON ACTION</span></div>
             </>
           )}
         </main>

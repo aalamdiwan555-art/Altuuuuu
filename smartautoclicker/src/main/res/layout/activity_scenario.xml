@@ -1,27 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-* Copyright (C) 2022 Kevin Buzeau
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
--->
-<androidx.fragment.app.FragmentContainerView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/fragment"
-    android:name="com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment"
-    android:tag="ScenarioList"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:layout="@layout/fragment_scenarios"/>
+    <!--
+    * Copyright (C) 2022 Kevin Buzeau
+    *
+    * This program is free software: you can redistribute it and/or modify
+    * it under the terms of the GNU General Public License as published by
+    * the Free Software Foundation, either version 3 of the License, or
+    * (at your option) any later version.
+    *
+    * This program is distributed in the hope that it will be useful,
+    * but WITHOUT ANY WARRANTY; without even the implied warranty of
+    * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    * GNU General Public License for more details.
+    *
+    * You should have received a copy of the GNU General Public License
+    * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    -->
+    <LinearLayout
+      xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:tools="http://schemas.android.com/tools"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="vertical"
+      android:fitsSystemWindows="true"
+      android:background="#F7F4EE">
 
+      <LinearLayout
+          android:id="@+id/subscription_status_bar"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="horizontal"
+          android:gravity="center_vertical"
+          android:paddingStart="20dp"
+          android:paddingTop="12dp"
+          android:paddingEnd="20dp"
+          android:paddingBottom="12dp"
+          android:background="#E7F6EF"
+          android:contentDescription="@string/subscription_status_content_description">
+
+          <TextView
+              android:id="@+id/subscription_status_title"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="@string/subscription_status_title"
+              android:textColor="#1F363E"
+              android:textSize="14sp"
+              android:textStyle="bold" />
+
+          <TextView
+              android:id="@+id/subscription_status_value"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:gravity="end"
+              android:text="@string/subscription_status_checking"
+              android:textColor="#25775B"
+              android:textSize="14sp"
+              android:textStyle="bold" />
+      </LinearLayout>
+
+      <androidx.fragment.app.FragmentContainerView
+          android:id="@+id/fragment"
+          android:name="com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment"
+          android:tag="ScenarioList"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1"
+          tools:layout="@layout/fragment_scenarios" />
+    </LinearLayout>
+    

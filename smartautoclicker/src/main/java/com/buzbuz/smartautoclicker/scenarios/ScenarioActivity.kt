@@ -41,6 +41,7 @@ import com.buzbuz.smartautoclicker.scenarios.viewmodel.ScenarioViewModel
 
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.util.Date
 
 /**
  * Entry point activity for the application.
@@ -101,7 +102,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         setContentView(R.layout.activity_scenario)
         scenarioViewModel.stopScenario()
         scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
-
+        refreshSubscriptionStatus()
 
         // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
         findViewById<View>(android.R.id.content).delayDrawUntil {
@@ -111,7 +112,10 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
 
     override fun onResume() {
         super.onResume()
-        if (accessGranted) scenarioViewModel.refreshPurchaseState()
+        if (accessGranted) {
+            scenarioViewModel.refreshPurchaseState()
+            refreshSubscriptionStatus()
+        }
     }
 
     override fun startScenario(item: ScenarioListUiState.Item.ScenarioItem) {
@@ -136,7 +140,59 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         }
     }
 
-    private fun onMandatoryPermissionsGranted() {
+    private fun refreshSubscriptionStatus() {
+          val statusValue = findViewById<TextView>(R.id.subscription_status_value)
+          statusValue.text = getString(R.string.subscription_status_checking)
+
+          lifecycleScope.launch {
+              val profile = try {
+                  authRepository.loadCurrentProfile()
+              } catch (_: Throwable) {
+                  null
+              }
+
+              if (!isFinishing && accessGranted) {
+                  statusValue.text = profile?.let(::subscriptionStatusText)
+                      ?: getString(R.string.subscription_status_unavailable)
+              }
+          }
+      }
+
+      private fun subscriptionStatusText(profile: com.buzbuz.smartautoclicker.auth.UserProfile): String {
+          val plan = when (profile.subscriptionPlan) {
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.LIFETIME ->
+                  getString(R.string.subscription_status_lifetime)
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.CUSTOM ->
+                  getString(
+                      R.string.auth_plan_custom_format,
+                      profile.subscriptionDays ?: 0,
+                  )
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.ONE_DAY ->
+                  getString(R.string.auth_plan_one_day)
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.TWO_DAYS ->
+                  getString(R.string.auth_plan_two_days)
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.THREE_DAYS ->
+                  getString(R.string.auth_plan_three_days)
+              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.NONE ->
+                  getString(R.string.subscription_status_unavailable)
+          }
+
+          if (profile.subscriptionPlan == com.buzbuz.smartautoclicker.auth.SubscriptionPlan.LIFETIME) {
+              return plan
+          }
+
+          val expiry = profile.subscriptionExpiresAt?.let {
+              DateFormat.getDateFormat(this).format(Date(it))
+          }
+
+          return if (expiry.isNullOrBlank()) {
+              plan
+          } else {
+              getString(R.string.subscription_status_expires, plan, expiry)
+          }
+      }
+
+      private fun onMandatoryPermissionsGranted() {
         scenarioViewModel.startTroubleshootingFlowIfNeeded(this) {
             when (val scenario = requestedItem?.scenario) {
                 is DumbScenario -> startDumbScenario(scenario)

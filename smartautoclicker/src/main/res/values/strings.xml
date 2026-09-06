@@ -17,7 +17,7 @@
 -->
 <resources>
 
-    <string name="app_name" translatable="false">Klick\'r</string>
+    <string name="app_name" translatable="false">Autopilot</string>
 
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_sign_up">Sign up</string>
@@ -42,7 +42,7 @@
     <string name="auth_logout">Log out</string>
     <string name="auth_loading_session">Checking your secure session…</string>
     <string name="auth_admin_panel">Admin panel</string>
-    <string name="auth_admin_title">Account approvals</string>
+    <string name="auth_admin_title">Autopilot approvals</string>
     <string name="auth_admin_subtitle">Review access requests and manage subscriptions.</string>
     <string name="auth_loading_users">Loading user requests…</string>
     <string name="auth_unknown_email">Unknown email</string>
@@ -94,14 +94,17 @@
     <string name="item_scenario_filter_by_most_used">Uses</string>
 
     <string name="item_scenario_last_used_never">Never used</string>
+
     <plurals name="item_scenario_last_used_minutes">
         <item quantity="one">%1$d min. ago</item>
         <item quantity="other">%1$d min. ago</item>
     </plurals>
+
     <plurals name="item_scenario_last_used_hours">
         <item quantity="one">%1$d hour ago</item>
         <item quantity="other">%1$d hours ago</item>
     </plurals>
+
     <plurals name="item_scenario_last_used_days">
         <item quantity="one">%1$d day ago</item>
         <item quantity="other">%1$d days ago</item>
@@ -153,13 +156,11 @@
       -->
     <string name="content_desc_add_scenario">Create a new scenario</string>
 
-
     <!-- Default name when creating a new scenario -->
     <string name="default_scenario_name">Default name</string>
     <string name="message_empty_image_events_scenario_list">No image events</string>
 
-
-    <!-- Settings Activity  ======================================================================================== -->
+    <!-- Settings Activity -->
 
     <string name="activity_settings_title">Settings</string>
 
@@ -182,11 +183,11 @@
     <string name="field_remove_ads">Remove ads</string>
     <string name="field_troubleshooting">Troubleshooting</string>
 
+    <!-- Legacy condition migration dialog -->
 
-    <!-- Legacy condition migration dialog  ======================================================================== -->
     <string name="dialog_condition_migration_title">Migration</string>
 
-    <string name="message_condition_migration_desc">Klick\'r images format have changed and your scenario needs to be updated.         This can take a few minutes depending on the number of conditions to migrate.</string>
+    <string name="message_condition_migration_desc">Autopilot images format have changed and your scenario needs to be updated. This can take a few minutes depending on the number of conditions to migrate.</string>
     <string name="message_condition_migration_count">%1$d Image Conditions to migrate.</string>
     <string name="message_condition_migration_success">All Image Conditions migrated.</string>
     <string name="message_condition_migration_error">Some conditions could not be migrated. Please check your scenarios.</string>
@@ -194,7 +195,6 @@
     <string name="button_condition_migration_start">Migrate</string>
     <string name="button_condition_migration_running">Migrating</string>
     <string name="button_condition_migration_finished">OK</string>
-
 
     <string name="dialog_title_backup">Backup</string>
     <string name="message_backup">Create or import a zip archive of scenarios</string>

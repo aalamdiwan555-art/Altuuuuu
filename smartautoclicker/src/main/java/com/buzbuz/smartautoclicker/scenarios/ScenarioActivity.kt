@@ -18,7 +18,9 @@ package com.buzbuz.smartautoclicker.scenarios
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels

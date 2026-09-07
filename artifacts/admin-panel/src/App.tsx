@@ -276,6 +276,7 @@ function Workspace({ adminEmail, onLogout }: { adminEmail: string; onLogout: () 
   const [search, setSearch] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [actionError, setActionError] = useState('');
   const summary = useGetAdminSummary({ query: { queryKey: getGetAdminSummaryQueryKey() } });
   const users = useListAdminUsers({ status: filter }, { query: { queryKey: getListAdminUsersQueryKey({ status: filter }) } });
   const approve = useApproveAdminUser();
@@ -290,13 +291,27 @@ function Workspace({ adminEmail, onLogout }: { adminEmail: string; onLogout: () 
   }
   function approveUser(plan: Plan) {
     if (!selectedUser) return;
-    approve.mutate({ userId: selectedUser.id, data: { plan } }, { onSuccess: () => { setSelectedUser(null); refresh(); } });
+    setActionError('');
+    approve.mutate({ userId: selectedUser.id, data: { plan } }, {
+      onSuccess: () => { setSelectedUser(null); refresh(); },
+      onError: (error) => setActionError(error instanceof Error ? error.message : 'Could not approve this account.'),
+    });
   }
   function declineUser(userId: string) {
     if (!window.confirm('Decline this access request?')) return;
-    decline.mutate({ userId }, { onSuccess: refresh });
+    setActionError('');
+    decline.mutate({ userId }, {
+      onSuccess: refresh,
+      onError: (error) => setActionError(error instanceof Error ? error.message : 'Could not decline this account.'),
+    });
   }
   const summaryData = summary.data ?? { total: 0, pending: 0, approved: 0, declined: 0 };
+  const todayLabel = new Intl.DateTimeFormat('en', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date()).toUpperCase();
 
   return (
     <div className="flex min-h-[100dvh] bg-[#f3efe6] text-[#25343b]">
@@ -306,9 +321,10 @@ function Workspace({ adminEmail, onLogout }: { adminEmail: string; onLogout: () 
         {mobileMenu && <div className="border-b border-[#dcd9cf] bg-[#203942] px-5 py-4 text-sm font-bold text-[#f7f3e9] md:hidden"><div className="flex items-center gap-3 rounded-xl bg-[#36545a] px-3 py-3"><CheckCircle2 size={17} className="text-[#8acdb3]" /> Approval workspace</div></div>}
         <main className="mx-auto max-w-[1400px] px-5 py-7 sm:px-8 sm:py-10 lg:px-12">
           <header className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div><p className="mb-2 font-mono-ui text-[10px] tracking-[.22em] text-[#71807c]">THURSDAY, 24 OCTOBER 2024 / 09:42 UTC</p><h1 className="text-3xl font-extrabold tracking-[-.055em] sm:text-4xl">Good morning, <span className="text-[#287c61]">team.</span></h1><p className="mt-2 text-sm text-[#6f7c79]">Review access requests and keep the community moving.</p></div>
+            <div><p className="mb-2 font-mono-ui text-[10px] tracking-[.22em] text-[#71807c]">{todayLabel}</p><h1 className="text-3xl font-extrabold tracking-[-.055em] sm:text-4xl">Good morning, <span className="text-[#287c61]">team.</span></h1><p className="mt-2 text-sm text-[#6f7c79]">Review access requests and keep the community moving.</p></div>
             <div className="hidden items-center gap-2 rounded-full border border-[#d8d9cf] bg-[#faf8f3] px-3 py-2 text-xs font-bold text-[#65736f] sm:flex"><span className="h-2 w-2 rounded-full bg-[#4ca77f]" /> Live workspace</div>
           </header>
+          {actionError && <div role="alert" className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"><AlertCircle className="mt-0.5 shrink-0 text-rose-600" size={18} /><div><p className="font-extrabold">Action could not be completed</p><p className="mt-1 text-xs text-rose-700">{actionError}</p></div><button className="ml-auto text-xs font-extrabold text-rose-700 underline" onClick={() => setActionError('')}>Dismiss</button></div>}
           {summary.isLoading ? <LoadingBars /> : summary.isError ? <ErrorMessage onRetry={() => summary.refetch()} /> : (
             <>
               <section className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
@@ -369,6 +385,10 @@ function Home() {
   const logout = useAdminLogout();
 
   if (session.isLoading) return <div className="min-h-[100dvh] bg-[#f3efe6] p-5 sm:p-10"><div className="mx-auto max-w-6xl"><div className="mb-12 h-10 w-40 animate-pulse rounded-lg bg-[#dedbd1]" /><LoadingBars /></div></div>;
+  const sessionStatus = (session.error as { status?: number } | undefined)?.status;
+  if (session.isError && sessionStatus !== 401 && sessionStatus !== 403) {
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#f3efe6] p-5"><div className="w-full max-w-md"><BrandMark /><div className="mt-10"><ErrorMessage onRetry={() => session.refetch()} /></div></div></div>;
+  }
   if (session.data?.admin) {
     const email = session.data.admin.email;
     return <Workspace adminEmail={email} onLogout={() => logout.mutate(undefined, { onSuccess: () => {

@@ -19,6 +19,9 @@ internal class AuthStore(context: Context) {
     val refreshToken: String?
         get() = preferences.getString(KEY_REFRESH_TOKEN, null)
 
+    fun hasSession(): Boolean =
+        !accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()
+
     fun saveSession(accessToken: String, refreshToken: String?) {
         preferences.edit()
             .putString(KEY_ACCESS_TOKEN, accessToken)
@@ -26,11 +29,14 @@ internal class AuthStore(context: Context) {
                 if (refreshToken == null) remove(KEY_REFRESH_TOKEN)
                 else putString(KEY_REFRESH_TOKEN, refreshToken)
             }
-            .apply()
+            // Auth tokens must be on disk before the activity can finish. Using
+            // apply() here can lose a freshly-created session if Android kills
+            // the process before the asynchronous write completes.
+            .commit()
     }
 
     fun clear() {
-        preferences.edit().clear().apply()
+        preferences.edit().clear().commit()
     }
 
     fun markSessionValidated() {

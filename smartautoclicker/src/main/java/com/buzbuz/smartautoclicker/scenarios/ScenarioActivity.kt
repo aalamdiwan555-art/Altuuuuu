@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 
 import com.buzbuz.smartautoclicker.R
 import com.buzbuz.smartautoclicker.auth.AdminActivity
+import com.buzbuz.smartautoclicker.auth.AuthException
 import com.buzbuz.smartautoclicker.auth.AuthActivity
 import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
 import com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment
@@ -79,7 +80,16 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         lifecycleScope.launch {
             val profile = try {
                 authRepository.loadCurrentProfile()
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
+                // Keep the stored session on connectivity/server failures. A
+                // transient Supabase error is not a reason to send the user
+                // back through login.
+                val canKeepSession = authRepository.hasStoredSession() &&
+                    (error !is AuthException || !error.isSessionInvalid())
+                if (canKeepSession) {
+                    initializeScenario()
+                    return@launch
+                }
                 null
             }
             if (profile?.isAdmin == true) {
@@ -122,7 +132,17 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         lifecycleScope.launch {
             val profile = try {
                 authRepository.loadCurrentProfile()
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
+                if (authRepository.hasStoredSession() &&
+                    (error !is AuthException || !error.isSessionInvalid())
+                ) {
+                    Toast.makeText(
+                        this@ScenarioActivity,
+                        R.string.auth_network_error,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    return@launch
+                }
                 null
             }
             if (profile?.hasActiveSubscription() != true) {

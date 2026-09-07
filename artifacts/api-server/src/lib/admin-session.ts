@@ -2,7 +2,10 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import type { Request, Response } from "express";
 
 const COOKIE_NAME = "altuu_admin_session";
-const COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
+// Supabase refresh tokens are long-lived. The encrypted cookie should survive
+// normal browser restarts while still expiring regularly and being renewed by
+// authenticated requests.
+const COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 
 export type AdminSession = {
   accessToken: string;

@@ -26,6 +26,8 @@ internal class SupabaseAuthRepository(context: Context) {
         get() = BuildConfig.SUPABASE_URL.startsWith("https://") &&
             BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
+    fun hasStoredSession(): Boolean = store.hasSession()
+
     fun markSessionValidated() = store.markSessionValidated()
 
     fun consumeRecentSessionValidation(): Boolean = store.consumeRecentSessionValidation()
@@ -86,10 +88,9 @@ internal class SupabaseAuthRepository(context: Context) {
                 .put("target_user_id", userId)
                 .put("plan", plan.name)
             customDays?.let { body.put("custom_days", it) }
-            request(
+            requestWithSessionRefresh(
                 path = "/rest/v1/rpc/admin_set_subscription",
                 method = "POST",
-                token = store.accessToken,
                 body = body.toString(),
             )
         }
@@ -97,10 +98,9 @@ internal class SupabaseAuthRepository(context: Context) {
 
     suspend fun declineUser(userId: String) {
         withContext(Dispatchers.IO) {
-            request(
+            requestWithSessionRefresh(
                 path = "/rest/v1/rpc/admin_decline_user",
                 method = "POST",
-                token = store.accessToken,
                 body = JSONObject().put("target_user_id", userId).toString(),
             )
         }
@@ -109,7 +109,7 @@ internal class SupabaseAuthRepository(context: Context) {
     suspend fun loadUsersForAdmin(): List<UserProfile> = withContext(Dispatchers.IO) {
         val profiles = requestProfileRows(
             path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&is_admin=eq.false&order=created_at.desc",
-            withSessionRefresh = false,
+            withSessionRefresh = true,
         )
         val rows = profiles.optJSONArray("data") ?: JSONArray()
         buildList {
@@ -154,21 +154,34 @@ internal class SupabaseAuthRepository(context: Context) {
         store.saveSession(accessToken, refreshToken)
     }
 
-    private fun requestWithSessionRefresh(path: String): JSONObject {
+    private fun requestWithSessionRefresh(
+        path: String,
+        method: String = "GET",
+        body: String? = null,
+    ): JSONObject {
         val token = store.accessToken ?: throw AuthException("Your session has expired.")
         return try {
-            request(path = path, token = token)
+            request(path = path, method = method, token = token, body = body)
         } catch (error: AuthException) {
-            if (error.statusCode != 401 || store.refreshToken.isNullOrBlank()) {
+            if (error.statusCode != 401) {
+                throw error
+            }
+
+            val refreshToken = store.refreshToken
+            if (refreshToken.isNullOrBlank()) {
                 store.clear()
                 throw error
             }
 
             try {
                 val refreshedToken = refreshAccessToken()
-                request(path = path, token = refreshedToken)
+                request(path = path, method = method, token = refreshedToken, body = body)
             } catch (refreshError: Throwable) {
-                store.clear()
+                // A temporary outage must not turn into a forced logout. Only
+                // discard credentials when Supabase explicitly rejects them.
+                if (refreshError is AuthException && refreshError.isSessionInvalid()) {
+                    store.clear()
+                }
                 throw refreshError
             }
         }
@@ -244,7 +257,11 @@ internal class SupabaseAuthRepository(context: Context) {
 internal class AuthException(
     message: String,
     val statusCode: Int? = null,
-) : Exception(message)
+) : Exception(message) {
+    fun isSessionInvalid(): Boolean =
+        statusCode == 401 ||
+            (statusCode == 400 && message.contains("refresh token", ignoreCase = true))
+}
 
 private fun JSONObject.toUserProfile(
     userId: String = optString("id"),

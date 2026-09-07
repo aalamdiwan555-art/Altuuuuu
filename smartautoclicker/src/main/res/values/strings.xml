@@ -66,6 +66,7 @@
     <string name="auth_configuration_missing_title">Sign-in is unavailable</string>
     <string name="auth_configuration_missing">The app is missing its Supabase configuration. Add SUPABASE_URL and SUPABASE_ANON_KEY to the build environment, then install a new build.</string>
     <string name="auth_generic_error">Something went wrong. Please try again.</string>
+    <string name="auth_network_error">Could not verify your account right now. Check your connection and try again.</string>
 
     <string name="activity_scenario_title">Scenarios</string>
     <string name="accessibility_service_description">This application needs this service to inject the clicks you have

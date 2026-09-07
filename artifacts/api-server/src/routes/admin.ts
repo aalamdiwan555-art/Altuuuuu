@@ -54,6 +54,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected server error.";
 }
 
+function isSessionInvalid(error: unknown): boolean {
+  return (
+    error instanceof SupabaseHttpError &&
+    (error.status === 401 ||
+      (error.status === 400 &&
+        /refresh token|invalid.*token|jwt/i.test(error.message)))
+  );
+}
+
 async function authenticateSession(
   session: AdminSession,
 ): Promise<{ context: AdminContext; session: AdminSession }> {
@@ -102,12 +111,10 @@ async function requireAdmin(
 
   try {
     const authenticated = await authenticateSession(session);
-    if (
-      authenticated.session.accessToken !== session.accessToken ||
-      authenticated.session.refreshToken !== session.refreshToken
-    ) {
-      writeAdminSession(res, authenticated.session);
-    }
+    // Refresh the cookie expiry on every successful check so an actively used
+    // admin session does not expire just because it reached its original
+    // browser-cookie deadline.
+    writeAdminSession(res, authenticated.session);
     res.locals.admin = authenticated.context;
     next();
   } catch (error) {
@@ -116,9 +123,15 @@ async function requireAdmin(
       res.status(403).json({ error: error.message });
       return;
     }
+    if (isSessionInvalid(error)) {
+      clearAdminSession(res);
+      res.status(401).json({ error: "Your session has expired. Please sign in again." });
+      return;
+    }
     req.log.warn({ err: error }, "Admin session could not be validated");
-    clearAdminSession(res);
-    res.status(401).json({ error: "Your session has expired. Please sign in again." });
+    res.status(503).json({
+      error: "The account service is temporarily unavailable. Please try again.",
+    });
   }
 }
 

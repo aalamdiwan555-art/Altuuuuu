@@ -153,7 +153,7 @@ class AdminActivity : AppCompatActivity() {
                     }
                 }
                 .onFailure {
-                    if (it is AuthException && it.statusCode == 401) {
+                    if (it is AuthException && it.isSessionInvalid()) {
                         redirectToAuth()
                     } else {
                         showState(
@@ -191,7 +191,7 @@ class AdminActivity : AppCompatActivity() {
                     }
                 }
                 .onFailure {
-                    if (it is AuthException && it.statusCode == 401) {
+                    if (it is AuthException && it.isSessionInvalid()) {
                         redirectToAuth()
                     } else {
                         showState(

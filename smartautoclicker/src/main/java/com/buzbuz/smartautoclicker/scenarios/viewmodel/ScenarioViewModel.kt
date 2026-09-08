@@ -33,6 +33,7 @@ import com.buzbuz.smartautoclicker.core.common.accessibility.domain.LocalAccessi
 import com.buzbuz.smartautoclicker.core.common.quality.domain.QualityRepository
 import com.buzbuz.smartautoclicker.core.display.config.DisplayConfigManager
 import com.buzbuz.smartautoclicker.core.domain.IRepository
+import com.buzbuz.smartautoclicker.core.domain.model.scenario.Scenario
 import com.buzbuz.smartautoclicker.core.dumb.domain.IDumbRepository
 import com.buzbuz.smartautoclicker.core.dumb.domain.model.DumbScenario
 import com.buzbuz.smartautoclicker.core.common.permissions.PermissionsController

@@ -30,6 +30,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import java.io.InputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -96,11 +97,25 @@ class BackupRepository @Inject constructor(
      *
      * @return a flow on the backup import progress.
      */
-    fun restoreScenarioBackup(zipFileUri: Uri, screenSize: Point) = channelFlow {
+    fun restoreScenarioBackup(zipFileUri: Uri, screenSize: Point) =
+        restoreScenarioBackup(screenSize) { progress ->
+            backupEngine.loadBackup(zipFileUri, screenSize, progress)
+        }
+
+    /**
+     * Restore a bundled scenario template from an already opened stream.
+     */
+    fun restoreScenarioBackup(inputStream: InputStream, screenSize: Point) =
+        restoreScenarioBackup(screenSize) { progress ->
+            backupEngine.loadBackup(inputStream, screenSize, progress)
+        }
+
+    private fun restoreScenarioBackup(
+        screenSize: Point,
+        loadBackup: suspend (BackupProgress) -> Unit,
+    ) = channelFlow {
         launch {
-            backupEngine.loadBackup(
-                zipFileUri,
-                screenSize,
+            loadBackup(
                 BackupProgress(
                     onError = { send(Backup.Error) },
                     onProgressChanged = { current, max -> send(Backup.Loading(current, max)) },

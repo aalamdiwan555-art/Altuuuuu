@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
@@ -109,6 +110,38 @@ internal class BackupEngine(appDataDir: File, private val contentResolver: Conte
     suspend fun loadBackup(zipFileUri: Uri, screenSize: Point, progress: BackupProgress) {
         Log.i(TAG, "Load backup: $zipFileUri")
 
+        val inputStream = try {
+            contentResolver.openInputStream(zipFileUri)
+        } catch (ioEx: IOException) {
+            Log.e(TAG, "Error while opening backup archive", ioEx)
+            progress.onError()
+            return
+        } catch (secEx: SecurityException) {
+            Log.e(TAG, "Error while opening backup archive, permission is denied", secEx)
+            progress.onError()
+            return
+        } catch (iaEx: IllegalArgumentException) {
+            Log.e(TAG, "Error while opening backup archive, uri is invalid", iaEx)
+            progress.onError()
+            return
+        }
+        if (inputStream == null) {
+            progress.onError()
+            return
+        }
+
+        inputStream.use {
+            loadBackup(it, screenSize, progress)
+        }
+    }
+
+    /**
+     * Loads a backup from an already opened stream. This is also used for bundled
+     * templates shipped inside the application resources.
+     */
+    suspend fun loadBackup(inputStream: InputStream, screenSize: Point, progress: BackupProgress) {
+        Log.i(TAG, "Load backup from input stream")
+
         dumbBackupDataSource.reset()
         smartBackupDataSource.reset()
 
@@ -117,7 +150,7 @@ internal class BackupEngine(appDataDir: File, private val contentResolver: Conte
 
         withContext(Dispatchers.IO) {
             try {
-                ZipInputStream(contentResolver.openInputStream(zipFileUri)).use { zipStream ->
+                ZipInputStream(inputStream).use { zipStream ->
                     generateSequence { zipStream.nextEntry }
                         .forEach { zipEntry ->
                             if (zipEntry.isDirectory) return@forEach
@@ -149,7 +182,7 @@ internal class BackupEngine(appDataDir: File, private val contentResolver: Conte
                 dumbBackupDataSource.verifyExtractedScenarios(screenSize)
                 smartBackupDataSource.verifyExtractedScenarios(screenSize)
 
-                Log.i(TAG, "Backup loading completed: $zipFileUri")
+                Log.i(TAG, "Backup loading completed")
                 Log.i(TAG, "Inserting extracted scenarios into database")
 
                 progress.onCompleted(

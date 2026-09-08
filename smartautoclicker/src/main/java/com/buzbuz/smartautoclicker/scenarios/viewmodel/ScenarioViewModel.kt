@@ -29,21 +29,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
 import com.buzbuz.smartautoclicker.core.base.data.AppComponentsProvider
-import com.buzbuz.smartautoclicker.core.base.identifier.DATABASE_ID_INSERTION
-import com.buzbuz.smartautoclicker.core.base.identifier.Identifier
 import com.buzbuz.smartautoclicker.core.common.accessibility.domain.LocalAccessibilityServiceConnection
 import com.buzbuz.smartautoclicker.core.common.quality.domain.QualityRepository
+import com.buzbuz.smartautoclicker.core.display.config.DisplayConfigManager
 import com.buzbuz.smartautoclicker.core.domain.IRepository
-import com.buzbuz.smartautoclicker.core.domain.model.scenario.Scenario
 import com.buzbuz.smartautoclicker.core.dumb.domain.IDumbRepository
 import com.buzbuz.smartautoclicker.core.dumb.domain.model.DumbScenario
-import com.buzbuz.smartautoclicker.core.processing.domain.DETECTION_QUALITY_MIN
-import com.buzbuz.smartautoclicker.R
 import com.buzbuz.smartautoclicker.core.common.permissions.PermissionsController
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionAccessibilityService
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionOverlay
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionPostNotification
 import com.buzbuz.smartautoclicker.core.settings.domain.SettingsRepository
+import com.buzbuz.smartautoclicker.feature.backup.domain.Backup
+import com.buzbuz.smartautoclicker.feature.backup.domain.BackupRepository
 import com.buzbuz.smartautoclicker.feature.revenue.IRevenueRepository
 import com.buzbuz.smartautoclicker.feature.revenue.UserConsentState
 
@@ -52,6 +50,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,6 +63,8 @@ class ScenarioViewModel @Inject constructor(
     private val revenueRepository: IRevenueRepository,
     private val smartRepository: IRepository,
     private val dumbRepository: IDumbRepository,
+    private val backupRepository: BackupRepository,
+    private val displayConfigManager: DisplayConfigManager,
     private val qualityRepository: QualityRepository,
     private val permissionController: PermissionsController,
     private val settingsRepository: SettingsRepository,
@@ -82,14 +83,16 @@ class ScenarioViewModel @Inject constructor(
             val smartScenarios = smartRepository.scenarios.first()
             val dumbScenarios = dumbRepository.dumbScenarios.first()
             if (smartScenarios.isEmpty() && dumbScenarios.isEmpty()) {
-                smartRepository.addScenario(
-                    Scenario(
-                        id = Identifier(databaseId = DATABASE_ID_INSERTION, tempId = 0L),
-                        name = context.getString(R.string.default_template_scenario_name),
-                        detectionQuality = DETECTION_QUALITY_MIN.toInt(),
-                        randomize = false,
-                    )
-                )
+                var imported = false
+                backupRepository.restoreScenarioBackup(
+                    inputStream = context.assets.open(DEFAULT_SCENARIO_ASSET),
+                    screenSize = displayConfigManager.displayConfig.sizePx,
+                ).collect { state ->
+                    if (state is Backup.Completed) {
+                        imported = state.successCount > 0
+                    }
+                }
+                if (!imported) return@launch
             }
 
             preferences.edit().putBoolean(DEFAULT_SCENARIO_CREATED, true).apply()
@@ -170,4 +173,5 @@ class ScenarioViewModel @Inject constructor(
 
 private const val DEFAULT_SCENARIO_PREFERENCES = "scenario_defaults"
 private const val DEFAULT_SCENARIO_CREATED = "default_template_created"
+private const val DEFAULT_SCENARIO_ASSET = "default_template.zip"
 

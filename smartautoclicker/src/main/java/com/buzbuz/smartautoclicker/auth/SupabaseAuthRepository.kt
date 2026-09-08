@@ -260,7 +260,7 @@ internal class AuthException(
 ) : Exception(message) {
     fun isSessionInvalid(): Boolean =
         statusCode == 401 ||
-            (statusCode == 400 && message.contains("refresh token", ignoreCase = true))
+            (statusCode == 400 && message?.contains("refresh token", ignoreCase = true) == true)
 }
 
 private fun JSONObject.toUserProfile(

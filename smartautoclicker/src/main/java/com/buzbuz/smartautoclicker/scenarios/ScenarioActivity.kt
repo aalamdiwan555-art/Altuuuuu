@@ -18,6 +18,7 @@ package com.buzbuz.smartautoclicker.scenarios
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.text.format.DateFormat
 import android.view.View
 import android.widget.TextView
@@ -31,7 +32,9 @@ import com.buzbuz.smartautoclicker.R
 import com.buzbuz.smartautoclicker.auth.AdminActivity
 import com.buzbuz.smartautoclicker.auth.AuthException
 import com.buzbuz.smartautoclicker.auth.AuthActivity
+import com.buzbuz.smartautoclicker.auth.SubscriptionPlan
 import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
+import com.buzbuz.smartautoclicker.auth.UserProfile
 import com.buzbuz.smartautoclicker.scenarios.list.ScenarioListFragment
 import com.buzbuz.smartautoclicker.scenarios.list.model.ScenarioListUiState
 import com.buzbuz.smartautoclicker.core.base.extensions.delayDrawUntil
@@ -64,6 +67,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     private var requestedItem: ScenarioListUiState.Item.ScenarioItem? = null
     private lateinit var authRepository: SupabaseAuthRepository
     private var accessGranted = false
+    private var subscriptionCountdown: CountDownTimer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -113,6 +117,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         accessGranted = true
         setContentView(R.layout.activity_scenario)
         scenarioViewModel.stopScenario()
+        scenarioViewModel.ensureDefaultScenario()
         scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
         refreshSubscriptionStatus()
 
@@ -128,6 +133,11 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
             scenarioViewModel.refreshPurchaseState()
             refreshSubscriptionStatus()
         }
+    }
+
+    override fun onDestroy() {
+        subscriptionCountdown?.cancel()
+        super.onDestroy()
     }
 
     override fun startScenario(item: ScenarioListUiState.Item.ScenarioItem) {
@@ -163,56 +173,108 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     }
 
     private fun refreshSubscriptionStatus() {
-          val statusValue = findViewById<TextView>(R.id.subscription_status_value)
-          statusValue.text = getString(R.string.subscription_status_checking)
+        subscriptionCountdown?.cancel()
+        val statusValue = findViewById<TextView>(R.id.subscription_status_value)
+        statusValue.text = getString(R.string.subscription_status_checking)
 
-          lifecycleScope.launch {
-              val profile = try {
-                  authRepository.loadCurrentProfile()
-              } catch (_: Throwable) {
-                  null
-              }
+        lifecycleScope.launch {
+            val profile = try {
+                authRepository.loadCurrentProfile()
+            } catch (_: Throwable) {
+                null
+            }
 
-              if (!isFinishing && accessGranted) {
-                  statusValue.text = profile?.let(::subscriptionStatusText)
-                      ?: getString(R.string.subscription_status_unavailable)
-              }
-          }
-      }
+            if (!isFinishing && accessGranted) {
+                if (profile == null) {
+                    statusValue.text = getString(R.string.subscription_status_unavailable)
+                } else {
+                    startSubscriptionCountdown(profile, statusValue)
+                }
+            }
+        }
+    }
 
-      private fun subscriptionStatusText(profile: com.buzbuz.smartautoclicker.auth.UserProfile): String {
+    private fun startSubscriptionCountdown(profile: UserProfile, statusValue: TextView) {
+        if (profile.subscriptionPlan == SubscriptionPlan.LIFETIME) {
+            statusValue.text = getString(R.string.subscription_status_lifetime)
+            return
+        }
+
+        val expiryAt = profile.subscriptionExpiresAt
+        if (expiryAt == null) {
+            statusValue.text = subscriptionStatusText(profile, 0L)
+            return
+        }
+
+        fun render(remainingMillis: Long) {
+            statusValue.text = subscriptionStatusText(profile, remainingMillis)
+        }
+
+        val remainingMillis = expiryAt - System.currentTimeMillis()
+        render(remainingMillis)
+        if (remainingMillis <= 0L) return
+
+        subscriptionCountdown = object : CountDownTimer(remainingMillis, 1_000L) {
+            override fun onTick(millisUntilFinished: Long) {
+                render(millisUntilFinished)
+            }
+
+            override fun onFinish() {
+                render(0L)
+            }
+        }.start()
+    }
+
+    private fun subscriptionStatusText(profile: UserProfile, remainingMillis: Long): String {
           val plan = when (profile.subscriptionPlan) {
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.LIFETIME ->
+              SubscriptionPlan.LIFETIME ->
                   getString(R.string.subscription_status_lifetime)
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.CUSTOM ->
+              SubscriptionPlan.CUSTOM ->
                   getString(
                       R.string.auth_plan_custom_format,
                       profile.subscriptionDays ?: 0,
                   )
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.ONE_DAY ->
+              SubscriptionPlan.ONE_DAY ->
                   getString(R.string.auth_plan_one_day)
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.TWO_DAYS ->
+              SubscriptionPlan.TWO_DAYS ->
                   getString(R.string.auth_plan_two_days)
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.THREE_DAYS ->
+              SubscriptionPlan.THREE_DAYS ->
                   getString(R.string.auth_plan_three_days)
-              com.buzbuz.smartautoclicker.auth.SubscriptionPlan.NONE ->
+              SubscriptionPlan.NONE ->
                   getString(R.string.subscription_status_unavailable)
-          }
+        }
 
-          if (profile.subscriptionPlan == com.buzbuz.smartautoclicker.auth.SubscriptionPlan.LIFETIME) {
-              return plan
-          }
+        val expiry = profile.subscriptionExpiresAt?.let {
+            val date = Date(it)
+            "${DateFormat.getDateFormat(this).format(date)} ${DateFormat.getTimeFormat(this).format(date)}"
+        }
 
-          val expiry = profile.subscriptionExpiresAt?.let {
-              DateFormat.getDateFormat(this).format(Date(it))
-          }
+        if (expiry.isNullOrBlank()) return plan
+        if (remainingMillis <= 0L) {
+            return getString(R.string.subscription_status_expired, plan, expiry)
+        }
 
-          return if (expiry.isNullOrBlank()) {
-              plan
-          } else {
-              getString(R.string.subscription_status_expires, plan, expiry)
-          }
-      }
+        return getString(
+            R.string.subscription_status_expires,
+            plan,
+            expiry,
+            formatRemainingTime(remainingMillis),
+        )
+    }
+
+    private fun formatRemainingTime(remainingMillis: Long): String {
+        val totalSeconds = (remainingMillis / 1_000L).coerceAtLeast(0L)
+        val days = totalSeconds / 86_400L
+        val hours = (totalSeconds % 86_400L) / 3_600L
+        val minutes = (totalSeconds % 3_600L) / 60L
+        val seconds = totalSeconds % 60L
+
+        return when {
+            days > 0L -> getString(R.string.subscription_remaining_days, days, hours, minutes)
+            hours > 0L -> getString(R.string.subscription_remaining_hours, hours, minutes, seconds)
+            else -> getString(R.string.subscription_remaining_minutes, minutes, seconds)
+        }
+    }
 
       private fun onMandatoryPermissionsGranted() {
         scenarioViewModel.startTroubleshootingFlowIfNeeded(this) {

@@ -159,6 +159,7 @@
 
     <!-- Default name when creating a new scenario -->
     <string name="default_scenario_name">Default name</string>
+    <string name="default_template_scenario_name">Default template</string>
     <string name="message_empty_image_events_scenario_list">No image events</string>
 
     <!-- Settings Activity -->
@@ -206,7 +207,11 @@
       <string name="subscription_status_checking">Checking…</string>
       <string name="subscription_status_unavailable">Unavailable</string>
       <string name="subscription_status_lifetime">Lifetime access</string>
-      <string name="subscription_status_expires">%1$s · Expires %2$s</string>
+    <string name="subscription_status_expires">%1$s · Expires %2$s\n%3$s left</string>
+    <string name="subscription_status_expired">%1$s · Expired at %2$s</string>
+    <string name="subscription_remaining_days">%1$d d %2$dh %3$dm</string>
+    <string name="subscription_remaining_hours">%1$dh %2$dm %3$ds</string>
+    <string name="subscription_remaining_minutes">%1$dm %2$ds</string>
       <string name="subscription_status_content_description">Current subscription status</string>
 
     </resources>

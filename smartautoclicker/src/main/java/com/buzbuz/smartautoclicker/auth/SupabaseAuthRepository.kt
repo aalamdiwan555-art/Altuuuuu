@@ -276,9 +276,9 @@ internal class AuthException(
             (
                 statusCode == 400 &&
                     (
-                        message.contains("refresh token", ignoreCase = true) ||
-                            message.contains("invalid_grant", ignoreCase = true) ||
-                            message.contains("jwt expired", ignoreCase = true)
+                        message.orEmpty().contains("refresh token", ignoreCase = true) ||
+                            message.orEmpty().contains("invalid_grant", ignoreCase = true) ||
+                            message.orEmpty().contains("jwt expired", ignoreCase = true)
                         )
                 )
 }

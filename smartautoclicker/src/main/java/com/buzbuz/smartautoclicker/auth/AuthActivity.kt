@@ -65,11 +65,21 @@ class AuthActivity : AppCompatActivity() {
                     }
                     routeProfile(profile)
                 }
-                .onFailure {
-                    showMessage(
-                        getString(R.string.auth_generic_error),
-                        it.message ?: "",
-                    )
+                .onFailure { error ->
+                    if (
+                        error is AuthException &&
+                        error.isSessionInvalid()
+                    ) {
+                        // The repository already discarded a rejected
+                        // session. Let the user sign in again directly rather
+                        // than showing a dead-end error screen.
+                        showAuthForm()
+                    } else {
+                        showMessage(
+                            getString(R.string.auth_generic_error),
+                            error.message ?: "",
+                        )
+                    }
                 }
         }
     }

@@ -19,8 +19,13 @@ internal class AuthStore(context: Context) {
     val refreshToken: String?
         get() = preferences.getString(KEY_REFRESH_TOKEN, null)
 
-    fun hasSession(): Boolean =
-        !accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()
+    /**
+     * An access token is enough to keep using a session while it is valid.
+     * The refresh token is only needed after the short-lived access token
+     * expires, so its absence should not make the app immediately route the
+     * user back to the login screen.
+     */
+    fun hasSession(): Boolean = !accessToken.isNullOrBlank()
 
     fun saveSession(accessToken: String, refreshToken: String?) {
         preferences.edit()

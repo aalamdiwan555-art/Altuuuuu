@@ -167,19 +167,32 @@ internal class SupabaseAuthRepository(context: Context) {
                 throw error
             }
 
-            val refreshToken = store.refreshToken
-            if (refreshToken.isNullOrBlank()) {
-                store.clear()
-                throw error
-            }
-
             try {
-                val refreshedToken = refreshAccessToken()
+                /*
+                 * Supabase rotates refresh tokens. Multiple requests can
+                 * notice the same expired access token at the same time
+                 * (especially during a cold start). Only the first request
+                 * may spend the refresh token; the others reuse the token it
+                 * stored instead of invalidating the session with a second
+                 * refresh attempt.
+                 */
+                val refreshedToken = synchronized(SESSION_REFRESH_LOCK) {
+                    val latestAccessToken = store.accessToken
+                    if (!latestAccessToken.isNullOrBlank() && latestAccessToken != token) {
+                        latestAccessToken
+                    } else {
+                        refreshAccessToken()
+                    }
+                }
                 request(path = path, method = method, token = refreshedToken, body = body)
             } catch (refreshError: Throwable) {
                 // A temporary outage must not turn into a forced logout. Only
                 // discard credentials when Supabase explicitly rejects them.
-                if (refreshError is AuthException && refreshError.isSessionInvalid()) {
+                if (
+                    refreshError is AuthException &&
+                    refreshError.isSessionInvalid() &&
+                    store.accessToken == token
+                ) {
                     store.clear()
                 }
                 throw refreshError
@@ -260,8 +273,17 @@ internal class AuthException(
 ) : Exception(message) {
     fun isSessionInvalid(): Boolean =
         statusCode == 401 ||
-            (statusCode == 400 && message?.contains("refresh token", ignoreCase = true) == true)
+            (
+                statusCode == 400 &&
+                    (
+                        message.contains("refresh token", ignoreCase = true) ||
+                            message.contains("invalid_grant", ignoreCase = true) ||
+                            message.contains("jwt expired", ignoreCase = true)
+                        )
+                )
 }
+
+private val SESSION_REFRESH_LOCK = Any()
 
 private fun JSONObject.toUserProfile(
     userId: String = optString("id"),

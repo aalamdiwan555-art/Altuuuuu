@@ -67,6 +67,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     private var requestedItem: ScenarioListUiState.Item.ScenarioItem? = null
     private lateinit var authRepository: SupabaseAuthRepository
     private var accessGranted = false
+    private var lastKnownProfile: UserProfile? = null
     private var subscriptionCountdown: CountDownTimer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,13 +80,16 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         setContentView(R.layout.auth_loading)
 
         if (authRepository.consumeRecentSessionValidation()) {
+            lastKnownProfile = authRepository.cachedProfile()
             initializeScenario()
             return
         }
 
         lifecycleScope.launch {
             val profile = try {
-                authRepository.loadCurrentProfile()
+                authRepository.loadCurrentProfile().also { loadedProfile ->
+                    if (loadedProfile != null) lastKnownProfile = loadedProfile
+                }
             } catch (error: Throwable) {
                 // Keep the stored session on connectivity/server failures. A
                 // transient Supabase error is not a reason to send the user
@@ -93,6 +97,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
                 val canKeepSession = authRepository.hasStoredSession() &&
                     (error !is AuthException || !error.isSessionInvalid())
                 if (canKeepSession) {
+                    lastKnownProfile = authRepository.cachedProfile()
                     initializeScenario()
                     return@launch
                 }
@@ -114,6 +119,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     }
 
     private fun initializeScenario() {
+        lastKnownProfile = lastKnownProfile ?: authRepository.cachedProfile()
         accessGranted = true
         setContentView(R.layout.activity_scenario)
         scenarioViewModel.stopScenario()
@@ -143,19 +149,20 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     override fun startScenario(item: ScenarioListUiState.Item.ScenarioItem) {
         lifecycleScope.launch {
             val profile = try {
-                authRepository.loadCurrentProfile()
+                authRepository.loadCurrentProfile().also { loadedProfile ->
+                    if (loadedProfile != null) lastKnownProfile = loadedProfile
+                }
             } catch (error: Throwable) {
                 if (authRepository.hasStoredSession() &&
                     (error !is AuthException || !error.isSessionInvalid())
                 ) {
-                    Toast.makeText(
-                        this@ScenarioActivity,
-                        R.string.auth_network_error,
-                        Toast.LENGTH_LONG,
-                    ).show()
-                    return@launch
+                    // Keep the last verified subscription during a transient
+                    // network/server failure so returning to the app does not
+                    // make every scenario appear unusable.
+                    lastKnownProfile ?: authRepository.cachedProfile()
+                } else {
+                    null
                 }
-                null
             }
             if (profile?.hasActiveSubscription() != true) {
                 Toast.makeText(this@ScenarioActivity, R.string.auth_expired_title, Toast.LENGTH_LONG).show()
@@ -179,9 +186,13 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
 
         lifecycleScope.launch {
             val profile = try {
-                authRepository.loadCurrentProfile()
+                authRepository.loadCurrentProfile().also { loadedProfile ->
+                    if (loadedProfile != null) lastKnownProfile = loadedProfile
+                }
             } catch (_: Throwable) {
-                null
+                // Do not replace a valid subscription with “Unavailable” just
+                // because the first resume request hit a temporary outage.
+                lastKnownProfile ?: authRepository.cachedProfile()
             }
 
             if (!isFinishing && accessGranted) {

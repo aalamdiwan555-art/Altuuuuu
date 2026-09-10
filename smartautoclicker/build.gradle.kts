@@ -63,15 +63,9 @@ android {
         fun String.asBuildConfigString(): String =
             "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-        // FIXED: Read from ALL possible sources (env var upper/lower + gradle props upper/lower)
-        val supabaseUrl = (System.getenv("SUPABASE_URL")
-            ?: System.getenv("supabaseUrl")
-            ?: (project.findProperty("SUPABASE_URL") as String?)
-            ?: (project.findProperty("supabaseUrl") as String?)
-            ?: project.providers.environmentVariable("SUPABASE_URL").orNull
-            ?: project.providers.gradleProperty("supabaseUrl").orNull
-            ?: project.providers.gradleProperty("SUPABASE_URL").orNull
-            ?: "").trim()
+        // The project URL is public. Keep it in source so a stale or misspelled
+        // CI secret cannot be embedded in a released APK.
+        val supabaseUrl = "https://bhcsikzjobnbwjxaxgay.supabase.co"
 
         val supabaseAnonKey = (System.getenv("SUPABASE_ANON_KEY")
             ?: System.getenv("supabaseAnonKey")

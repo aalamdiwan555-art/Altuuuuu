@@ -40,6 +40,50 @@ internal class AuthStore(context: Context) {
             .commit()
     }
 
+    fun saveProfile(profile: UserProfile) {
+        preferences.edit()
+            .putString(KEY_PROFILE_ID, profile.id)
+            .putString(KEY_PROFILE_EMAIL, profile.email)
+            .putString(KEY_PROFILE_APPROVAL_STATUS, profile.approvalStatus.name)
+            .putString(KEY_PROFILE_SUBSCRIPTION_PLAN, profile.subscriptionPlan.name)
+            .putBoolean(KEY_PROFILE_IS_ADMIN, profile.isAdmin)
+            .apply {
+                if (profile.subscriptionDays == null) remove(KEY_PROFILE_SUBSCRIPTION_DAYS)
+                else putInt(KEY_PROFILE_SUBSCRIPTION_DAYS, profile.subscriptionDays)
+                if (profile.subscriptionExpiresAt == null) remove(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT)
+                else putLong(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT, profile.subscriptionExpiresAt)
+            }
+            .commit()
+    }
+
+    fun cachedProfile(): UserProfile? {
+        val id = preferences.getString(KEY_PROFILE_ID, null)?.takeIf { it.isNotBlank() }
+            ?: return null
+        val subscriptionExpiresAt = if (preferences.contains(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT)) {
+            preferences.getLong(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT, 0L)
+        } else {
+            null
+        }
+        val subscriptionDays = if (preferences.contains(KEY_PROFILE_SUBSCRIPTION_DAYS)) {
+            preferences.getInt(KEY_PROFILE_SUBSCRIPTION_DAYS, 0)
+        } else {
+            null
+        }
+        return UserProfile(
+            id = id,
+            email = preferences.getString(KEY_PROFILE_EMAIL, "").orEmpty(),
+            approvalStatus = ApprovalStatus.fromValue(
+                preferences.getString(KEY_PROFILE_APPROVAL_STATUS, null),
+            ),
+            subscriptionPlan = SubscriptionPlan.fromValue(
+                preferences.getString(KEY_PROFILE_SUBSCRIPTION_PLAN, null),
+            ),
+            subscriptionDays = subscriptionDays,
+            subscriptionExpiresAt = subscriptionExpiresAt,
+            isAdmin = preferences.getBoolean(KEY_PROFILE_IS_ADMIN, false),
+        )
+    }
+
     fun clear() {
         preferences.edit().clear().commit()
     }
@@ -61,5 +105,12 @@ internal class AuthStore(context: Context) {
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_LAST_VALIDATED_AT = "last_validated_at"
+        const val KEY_PROFILE_ID = "profile_id"
+        const val KEY_PROFILE_EMAIL = "profile_email"
+        const val KEY_PROFILE_APPROVAL_STATUS = "profile_approval_status"
+        const val KEY_PROFILE_SUBSCRIPTION_PLAN = "profile_subscription_plan"
+        const val KEY_PROFILE_SUBSCRIPTION_DAYS = "profile_subscription_days"
+        const val KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT = "profile_subscription_expires_at"
+        const val KEY_PROFILE_IS_ADMIN = "profile_is_admin"
     }
 }

@@ -32,6 +32,8 @@ internal class SupabaseAuthRepository(context: Context) {
 
     fun consumeRecentSessionValidation(): Boolean = store.consumeRecentSessionValidation()
 
+    fun cachedProfile(): UserProfile? = store.cachedProfile()
+
     suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
         val response = request(
             path = "/auth/v1/signup",
@@ -76,7 +78,10 @@ internal class SupabaseAuthRepository(context: Context) {
         )
         val profile = profiles.optJSONArray("data")?.optJSONObject(0)
             ?: throw AuthException("Your account profile is not available yet.")
-        profile.toUserProfile(userId = userId, fallbackEmail = user.optString("email"))
+        return@withContext profile.toUserProfile(
+            userId = userId,
+            fallbackEmail = user.optString("email"),
+        ).also(store::saveProfile)
     }
 
     suspend fun hasActiveSubscription(): Boolean =
@@ -163,7 +168,7 @@ internal class SupabaseAuthRepository(context: Context) {
         return try {
             request(path = path, method = method, token = token, body = body)
         } catch (error: AuthException) {
-            if (error.statusCode != 401) {
+            if (error.statusCode != 401 && !error.isSessionInvalid()) {
                 throw error
             }
 

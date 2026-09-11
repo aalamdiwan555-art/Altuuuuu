@@ -26,13 +26,41 @@ import android.os.Build
 import androidx.core.app.ServiceCompat
 
 fun Service.startForegroundMediaProjectionServiceCompat(notificationId : Int, notification: Notification) {
+    startForegroundServiceCompat(
+        notificationId = notificationId,
+        notification = notification,
+        foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+    )
+}
+
+fun Service.startForegroundSpecialUseServiceCompat(notificationId : Int, notification: Notification) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        startForegroundServiceCompat(
+            notificationId = notificationId,
+            notification = notification,
+            foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+        )
+    } else {
+        startForegroundServiceCompat(
+            notificationId = notificationId,
+            notification = notification,
+            foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE,
+        )
+    }
+}
+
+private fun Service.startForegroundServiceCompat(
+    notificationId: Int,
+    notification: Notification,
+    foregroundServiceType: Int,
+) {
     when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
             ServiceCompat.startForeground(
                 this,
                 notificationId,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+                foregroundServiceType,
             )
 
         else -> startForeground(notificationId, notification)

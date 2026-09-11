@@ -123,7 +123,6 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         accessGranted = true
         setContentView(R.layout.activity_scenario)
         scenarioViewModel.stopScenario()
-        scenarioViewModel.ensureDefaultScenario()
         scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
         refreshSubscriptionStatus()
 

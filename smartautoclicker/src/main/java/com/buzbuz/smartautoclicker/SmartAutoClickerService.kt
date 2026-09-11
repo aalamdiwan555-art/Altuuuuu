@@ -27,6 +27,7 @@ import com.buzbuz.smartautoclicker.core.base.Dumpable
 import com.buzbuz.smartautoclicker.core.base.data.AppComponentsProvider
 import com.buzbuz.smartautoclicker.core.base.extensions.requestFilterKeyEvents
 import com.buzbuz.smartautoclicker.core.base.extensions.startForegroundMediaProjectionServiceCompat
+import com.buzbuz.smartautoclicker.core.base.extensions.startForegroundSpecialUseServiceCompat
 import com.buzbuz.smartautoclicker.core.base.notifications.NotificationIds
 import com.buzbuz.smartautoclicker.core.bitmaps.BitmapRepository
 import com.buzbuz.smartautoclicker.core.common.accessibility.domain.LocalAccessibilityServiceConnection
@@ -143,7 +144,11 @@ class SmartAutoClickerService : AccessibilityService() {
         qualityMetricsMonitor.onServiceForegroundStart()
 
         serviceNotification?.let {
-            startForegroundMediaProjectionServiceCompat(NotificationIds.FOREGROUND_SERVICE_NOTIFICATION_ID, it)
+            if (isSmart) {
+                startForegroundMediaProjectionServiceCompat(NotificationIds.FOREGROUND_SERVICE_NOTIFICATION_ID, it)
+            } else {
+                startForegroundSpecialUseServiceCompat(NotificationIds.FOREGROUND_SERVICE_NOTIFICATION_ID, it)
+            }
         }
         requestFilterKeyEvents(true)
 

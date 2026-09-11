@@ -31,41 +31,26 @@ import androidx.lifecycle.viewModelScope
 import com.buzbuz.smartautoclicker.core.base.data.AppComponentsProvider
 import com.buzbuz.smartautoclicker.core.common.accessibility.domain.LocalAccessibilityServiceConnection
 import com.buzbuz.smartautoclicker.core.common.quality.domain.QualityRepository
-import com.buzbuz.smartautoclicker.core.display.config.DisplayConfigManager
-import com.buzbuz.smartautoclicker.core.domain.IRepository
 import com.buzbuz.smartautoclicker.core.domain.model.scenario.Scenario
-import com.buzbuz.smartautoclicker.core.dumb.domain.IDumbRepository
 import com.buzbuz.smartautoclicker.core.dumb.domain.model.DumbScenario
 import com.buzbuz.smartautoclicker.core.common.permissions.PermissionsController
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionAccessibilityService
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionOverlay
 import com.buzbuz.smartautoclicker.core.common.permissions.model.PermissionPostNotification
 import com.buzbuz.smartautoclicker.core.settings.domain.SettingsRepository
-import com.buzbuz.smartautoclicker.feature.backup.domain.Backup
-import com.buzbuz.smartautoclicker.feature.backup.domain.BackupRepository
 import com.buzbuz.smartautoclicker.feature.revenue.IRevenueRepository
 import com.buzbuz.smartautoclicker.feature.revenue.UserConsentState
 
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** AndroidViewModel for create/delete/list click scenarios from an LifecycleOwner. */
 @HiltViewModel
 class ScenarioViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val revenueRepository: IRevenueRepository,
-    private val smartRepository: IRepository,
-    private val dumbRepository: IDumbRepository,
-    private val backupRepository: BackupRepository,
-    private val displayConfigManager: DisplayConfigManager,
     private val qualityRepository: QualityRepository,
     private val permissionController: PermissionsController,
     private val settingsRepository: SettingsRepository,
@@ -75,30 +60,6 @@ class ScenarioViewModel @Inject constructor(
 
     val userConsentState: StateFlow<UserConsentState> = revenueRepository.userConsentState
         .stateIn(viewModelScope, SharingStarted.Eagerly, UserConsentState.UNKNOWN)
-
-    fun ensureDefaultScenario() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val preferences = context.getSharedPreferences(DEFAULT_SCENARIO_PREFERENCES, Context.MODE_PRIVATE)
-            if (preferences.getBoolean(DEFAULT_SCENARIO_CREATED, false)) return@launch
-
-            val smartScenarios = smartRepository.scenarios.first()
-            val dumbScenarios = dumbRepository.dumbScenarios.first()
-            if (smartScenarios.isEmpty() && dumbScenarios.isEmpty()) {
-                var imported = false
-                backupRepository.restoreScenarioBackup(
-                    inputStream = context.assets.open(DEFAULT_SCENARIO_ASSET),
-                    screenSize = displayConfigManager.displayConfig.sizePx,
-                ).collect { state ->
-                    if (state is Backup.Completed) {
-                        imported = state.successCount > 0
-                    }
-                }
-                if (!imported) return@launch
-            }
-
-            preferences.edit().putBoolean(DEFAULT_SCENARIO_CREATED, true).apply()
-        }
-    }
 
     fun isEntireScreenCaptureForced(): Boolean =
         settingsRepository.isEntireScreenCaptureForced()
@@ -152,7 +113,9 @@ class ScenarioViewModel @Inject constructor(
             if (foregroundPermission != PermissionChecker.PERMISSION_GRANTED) return false
         }
 
-        serviceConnection.getLocalService()?.startSmartScenario(resultCode, data, scenario)
+        if (!PermissionOverlay().checkIfGranted(context)) return false
+        val localService = serviceConnection.getLocalService() ?: return false
+        localService.startSmartScenario(resultCode, data, scenario)
         return true
     }
 
@@ -162,7 +125,9 @@ class ScenarioViewModel @Inject constructor(
             if (foregroundPermission != PermissionChecker.PERMISSION_GRANTED) return false
         }
 
-        serviceConnection.getLocalService()?.startDumbScenario(scenario)
+        if (!PermissionOverlay().checkIfGranted(context)) return false
+        val localService = serviceConnection.getLocalService() ?: return false
+        localService.startDumbScenario(scenario)
         return true
     }
 
@@ -171,8 +136,4 @@ class ScenarioViewModel @Inject constructor(
         serviceConnection.getLocalService()?.stopScenario()
     }
 }
-
-private const val DEFAULT_SCENARIO_PREFERENCES = "scenario_defaults"
-private const val DEFAULT_SCENARIO_CREATED = "default_template_created"
-private const val DEFAULT_SCENARIO_ASSET = "default_template.zip"
 

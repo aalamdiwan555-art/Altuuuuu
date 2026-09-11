@@ -140,7 +140,16 @@ class LocalService(
     private fun startDumbScenarioAuthorized(dumbScenario: DumbScenario) {
         if (state.isStarted) return
         state = LocalServiceState(isStarted = true, isSmartLoaded = false)
-        onStart(dumbScenario.id.databaseId, false, null)
+        onStart(
+            dumbScenario.id.databaseId,
+            false,
+            notificationController.createNotification(
+                context = context,
+                scenarioName = dumbScenario.name,
+                isRunning = false,
+                isMenuVisible = true,
+            ),
+        )
 
         startJob = serviceScope.launch {
             delay(500)

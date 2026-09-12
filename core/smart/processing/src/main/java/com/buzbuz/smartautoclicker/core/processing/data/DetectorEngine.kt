@@ -346,11 +346,19 @@ class DetectorEngine @Inject constructor(
      * resources.
      */
     internal fun stopScreenRecord() {
-        if (_state.value == DetectorState.DETECTING) {
-            stopDetection()
-            stopRecording()
-        } else if (_state.value == DetectorState.RECORDING) {
-            stopRecording()
+        when (_state.value) {
+            DetectorState.DETECTING -> {
+                stopDetection()
+                stopRecording()
+            }
+
+            DetectorState.RECORDING,
+            DetectorState.TRANSITIONING,
+            DetectorState.ERROR_NATIVE_DETECTOR_LIB_NOT_FOUND,
+            DetectorState.ERROR_OCR_MODEL_NOT_FOUND,
+            DetectorState.ERROR_SCREEN_IMAGE_CAPTURE_FAILED -> stopRecording()
+
+            DetectorState.CREATED -> Unit
         }
     }
 

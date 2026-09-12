@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -69,6 +70,10 @@ class LocalService(
     private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     /** Coroutine job for the delayed start of engine & ui. */
     private var startJob: Job? = null
+    /** Coroutine job for releasing the active scenario resources. */
+    private var cleanupJob: Job? = null
+    /** Coroutine job that waits for cleanup before cancelling the service scope. */
+    private var releaseJob: Job? = null
     /** Coroutine job for the paywall result upon start from notification. */
     private var paywallResultJob: Job? = null
     /** Controls the notifications for the foreground service. */
@@ -192,21 +197,39 @@ class LocalService(
         if (!isStarted) return
         state = LocalServiceState(isStarted = false, isSmartLoaded = false)
 
-        serviceScope.launch {
-            startJob?.join()
-            startJob = null
-
-            dumbEngine.release()
-            overlayManager.closeAll(context)
-            smartProcessingRepository.stopScreenRecord()
-
-            onStop()
-            notificationController.destroyNotification()
+        cleanupJob = serviceScope.launch {
+            cleanupScenario()
         }
     }
 
+    private suspend fun cleanupScenario() {
+        // Cancel delayed overlay startup before releasing engines. Waiting for
+        // the startup job can otherwise keep teardown alive after an unbind.
+        startJob?.cancelAndJoin()
+        startJob = null
+
+        dumbEngine.release()
+        overlayManager.closeAll(context)
+        smartProcessingRepository.stopScreenRecord()
+
+        onStop()
+        notificationController.destroyNotification()
+    }
+
     override fun release() {
-        serviceScope.cancel()
+        if (releaseJob != null) return
+
+        releaseJob = serviceScope.launch {
+            if (isStarted) {
+                state = LocalServiceState(isStarted = false, isSmartLoaded = false)
+                cleanupScenario()
+            } else {
+                cleanupJob?.join()
+            }
+
+            // Do not cancel the scope until scenario cleanup has completed.
+            serviceScope.cancel()
+        }
     }
 
     internal fun onKeyEvent(event: KeyEvent?): Boolean {

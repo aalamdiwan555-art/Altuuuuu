@@ -44,10 +44,14 @@ import com.buzbuz.smartautoclicker.core.domain.model.scenario.Scenario
 import com.buzbuz.smartautoclicker.core.dumb.domain.model.DumbScenario
 import com.buzbuz.smartautoclicker.core.ui.errors.createNoMediaProjectionDialog
 import com.buzbuz.smartautoclicker.feature.revenue.UserConsentState
+import com.buzbuz.smartautoclicker.feature.revenue.IRevenueRepository
 import com.buzbuz.smartautoclicker.scenarios.viewmodel.ScenarioViewModel
 
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import java.util.Date
 
 /**
@@ -67,9 +71,11 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
     /** Scenario clicked by the user. */
     private var requestedItem: ScenarioListUiState.Item.ScenarioItem? = null
     private lateinit var authRepository: SupabaseAuthRepository
+    @javax.inject.Inject lateinit var revenueRepository: IRevenueRepository
     private var accessGranted = false
     private var lastKnownProfile: UserProfile? = null
     private var subscriptionCountdown: CountDownTimer? = null
+    private var startupRewardRequested = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -126,10 +132,43 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
         scenarioViewModel.stopScenario()
         scenarioViewModel.requestUserConsentIfNeeded(this@ScenarioActivity)
         refreshSubscriptionStatus()
+        showStartupRewardedAd()
 
         // Splash screen is dismissed on first frame drawn, delay it until we have a user consent status
         findViewById<View>(android.R.id.content).delayDrawUntil {
             scenarioViewModel.userConsentState.value != UserConsentState.UNKNOWN
+        }
+    }
+
+    private fun showStartupRewardedAd() {
+        if (startupRewardRequested || lastKnownProfile?.adFreeOverride == true ||
+            lastKnownProfile?.subscriptionPlan == SubscriptionPlan.LIFETIME
+        ) return
+        startupRewardRequested = true
+        lifecycleScope.launch {
+            scenarioViewModel.userConsentState
+                .filter { it != UserConsentState.UNKNOWN }
+                .first()
+            delay(500)
+            revenueRepository.showRewardedAd(
+                activity = this@ScenarioActivity,
+                onRewarded = {
+                    lifecycleScope.launch {
+                        runCatching { authRepository.claimRewardedAd() }
+                            .onSuccess { lastKnownProfile = it }
+                            .onFailure {
+                                Toast.makeText(
+                                    this@ScenarioActivity,
+                                    it.message ?: "Unable to record rewarded ad",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                    }
+                },
+                onUnavailable = {
+                    // The home-screen CTA remains available if the startup ad cannot load.
+                },
+            )
         }
     }
 

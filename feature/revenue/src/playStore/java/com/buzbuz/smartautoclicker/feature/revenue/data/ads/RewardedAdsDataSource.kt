@@ -22,6 +22,9 @@ internal class RewardedAdsDataSource @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + mainDispatcher)
     private var isLoaded = false
     private var isLoading = false
+    private var pendingActivity: Activity? = null
+    private var pendingRewarded: (() -> Unit)? = null
+    private var pendingUnavailable: (() -> Unit)? = null
 
     fun load(context: Context) {
         if (isLoaded || isLoading) return
@@ -31,6 +34,14 @@ internal class RewardedAdsDataSource @Inject constructor(
             onLoaded = {
                 isLoading = false
                 isLoaded = true
+                pendingActivity?.let { activity ->
+                    val rewarded = pendingRewarded ?: return@let
+                    val unavailable = pendingUnavailable ?: {}
+                    pendingActivity = null
+                    pendingRewarded = null
+                    pendingUnavailable = null
+                    showLoaded(activity, rewarded, unavailable)
+                }
             },
             onError = { _, _ ->
                 isLoading = false
@@ -45,11 +56,21 @@ internal class RewardedAdsDataSource @Inject constructor(
         onUnavailable: () -> Unit,
     ) {
         if (!isLoaded) {
-            onUnavailable()
-            load(appContext)
+            pendingActivity = activity
+            pendingRewarded = onRewarded
+            pendingUnavailable = onUnavailable
+            load(activity)
             return
         }
 
+        showLoaded(activity, onRewarded, onUnavailable)
+    }
+
+    private fun showLoaded(
+        activity: Activity,
+        onRewarded: () -> Unit,
+        onUnavailable: () -> Unit,
+    ) {
         isLoaded = false
         adsSdk.showRewardedAd(
             activity = activity,

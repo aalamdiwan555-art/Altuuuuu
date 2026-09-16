@@ -10,12 +10,21 @@ create table if not exists public.profiles (
         check (subscription_plan in ('NONE', 'ONE_DAY', 'TWO_DAYS', 'THREE_DAYS', 'LIFETIME', 'CUSTOM')),
     subscription_days integer,
     subscription_expires_at timestamptz,
+    rewarded_ads_watched integer not null default 0
+        check (rewarded_ads_watched >= 0),
+    rewarded_subscription_expires_at timestamptz,
+    ad_free_override boolean not null default false,
+    last_rewarded_ad_at timestamptz,
     is_admin boolean not null default false,
     created_at timestamptz not null default timezone('utc', now()),
     updated_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.profiles add column if not exists subscription_days integer;
+alter table public.profiles add column if not exists rewarded_ads_watched integer not null default 0;
+alter table public.profiles add column if not exists rewarded_subscription_expires_at timestamptz;
+alter table public.profiles add column if not exists ad_free_override boolean not null default false;
+alter table public.profiles add column if not exists last_rewarded_ad_at timestamptz;
 alter table public.profiles drop constraint if exists profiles_subscription_plan_check;
 alter table public.profiles drop constraint if exists profiles_subscription_days_check;
 alter table public.profiles drop constraint if exists profiles_subscription_plan_days_check;
@@ -168,6 +177,90 @@ revoke all on function public.admin_set_subscription(uuid, text, integer) from p
 grant execute on function public.admin_set_subscription(uuid, text, integer) to authenticated;
 revoke all on function public.admin_decline_user(uuid) from public;
 grant execute on function public.admin_decline_user(uuid) to authenticated;
+
+create or replace function public.claim_rewarded_ad()
+returns public.profiles
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    updated_profile public.profiles;
+    current_profile public.profiles;
+    next_ad_count integer;
+    next_rewarded_expiry timestamptz;
+begin
+    select * into current_profile
+    from public.profiles
+    where id = auth.uid()
+    for update;
+
+    if current_profile.id is null then
+        raise exception 'Your account profile is not available yet.';
+    end if;
+
+    if current_profile.approval_status <> 'APPROVED' then
+        raise exception 'Your account must be approved before rewarded access can be earned.';
+    end if;
+
+    if current_profile.ad_free_override or current_profile.subscription_plan = 'LIFETIME' then
+        return current_profile;
+    end if;
+
+    if current_profile.last_rewarded_ad_at is not null
+        and current_profile.last_rewarded_ad_at > timezone('utc', now()) - interval '30 seconds' then
+        raise exception 'Please wait before claiming another rewarded ad.';
+    end if;
+
+    next_ad_count := current_profile.rewarded_ads_watched + 1;
+    next_rewarded_expiry := current_profile.rewarded_subscription_expires_at;
+
+    if next_ad_count % 20 = 0 then
+        next_rewarded_expiry :=
+            greatest(coalesce(next_rewarded_expiry, timezone('utc', now())), timezone('utc', now()))
+            + interval '1 day';
+    end if;
+
+    update public.profiles
+    set rewarded_ads_watched = next_ad_count,
+        rewarded_subscription_expires_at = next_rewarded_expiry,
+        last_rewarded_ad_at = timezone('utc', now()),
+        updated_at = timezone('utc', now())
+    where id = auth.uid()
+    returning * into updated_profile;
+
+    return updated_profile;
+end;
+$$;
+
+create or replace function public.admin_set_ad_free(
+    target_user_id uuid,
+    enabled boolean
+)
+returns public.profiles
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    updated_profile public.profiles;
+begin
+    if not public.current_user_is_admin() then
+        raise exception 'Only an administrator can change ad-free access';
+    end if;
+
+    update public.profiles
+    set ad_free_override = enabled,
+        updated_at = timezone('utc', now())
+    where id = target_user_id
+    returning * into updated_profile;
+
+    return updated_profile;
+end;
+$$;
+
+revoke all on function public.claim_rewarded_ad() from public;
+grant execute on function public.claim_rewarded_ad() to authenticated;
+revoke all on function public.admin_set_ad_free(uuid, boolean) from public;
+grant execute on function public.admin_set_ad_free(uuid, boolean) to authenticated;
 
 -- After creating the administrator in Supabase Auth, run this without the password:
 -- update public.profiles set is_admin = true where email = 'aalamdiwan555@gmail.com';

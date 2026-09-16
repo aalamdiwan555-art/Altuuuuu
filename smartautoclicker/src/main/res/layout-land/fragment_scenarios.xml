@@ -97,6 +97,17 @@
         tools:listitem="@layout/item_smart_scenario"
         tools:visibility="gone"/>
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/watch_subscription"
+        style="@style/AppTheme.Widget.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="@dimen/margin_vertical_extra_large"
+        android:text="Watch ad to get subscription"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/loading"
         style="@style/AppTheme.Widget.CircularProgressIndicator"

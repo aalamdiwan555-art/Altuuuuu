@@ -51,8 +51,8 @@ data class UserProfile(
         approvalStatus == ApprovalStatus.APPROVED &&
             (adFreeOverride ||
                 subscriptionPlan == SubscriptionPlan.LIFETIME ||
-                (subscriptionExpiresAt != null && subscriptionExpiresAt > now))
-                || (rewardedSubscriptionExpiresAt != null && rewardedSubscriptionExpiresAt > now)
+                (subscriptionExpiresAt != null && subscriptionExpiresAt > now) ||
+                (rewardedSubscriptionExpiresAt != null && rewardedSubscriptionExpiresAt > now))
 }
 
 internal fun parseIsoTimestamp(value: String?): Long? {

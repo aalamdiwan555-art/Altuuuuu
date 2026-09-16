@@ -33,6 +33,9 @@ import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.google.android.gms.ads.OnUserEarnedRewardListener
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -56,6 +59,7 @@ class GoogleAdsSdk @Inject constructor(
     private var reconnectJob: Job? = null
 
     private var interstitialAd: InterstitialAd? = null
+    private var rewardedAd: RewardedAd? = null
 
     @MainThread
     override fun initializeSdk(context: Context, onComplete: () -> Unit) {
@@ -98,6 +102,45 @@ class GoogleAdsSdk @Inject constructor(
         ad.fullScreenContentCallback = newAdShowCallback(onShow, onDismiss, onError)
         ad.show(activity)
         interstitialAd = null
+    }
+
+    @MainThread
+    override fun loadRewardedAd(
+        context: Context,
+        onLoaded: () -> Unit,
+        onError: (code: Int, message: String) -> Unit,
+    ) = RewardedAd.load(
+        context,
+        BuildConfig.ADS_UNIT_ID,
+        AdRequest.Builder().build(),
+        object : RewardedAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedAd) {
+                rewardedAd = ad
+                onLoaded()
+            }
+
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                rewardedAd = null
+                onError(error.code, error.message)
+            }
+        },
+    )
+
+    @MainThread
+    override fun showRewardedAd(
+        activity: Activity,
+        onRewarded: (com.google.android.gms.ads.rewarded.RewardItem) -> Unit,
+        onDismiss: () -> Unit,
+        onError: (code: Int, message: String) -> Unit,
+    ) {
+        val ad = rewardedAd ?: return
+        rewardedAd = null
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() = onDismiss()
+            override fun onAdFailedToShowFullScreenContent(error: AdError) =
+                onError(error.code, error.message)
+        }
+        ad.show(activity, OnUserEarnedRewardListener { onRewarded(it) })
     }
 
     private fun buildInterstitialAdRequest(): AdRequest =

@@ -47,6 +47,14 @@ interface IRevenueRepository : Dumpable {
     fun refreshPurchases()
     fun startPurchaseUiFlow(context: Context)
 
+    fun showRewardedAd(
+        activity: Activity,
+        onRewarded: () -> Unit,
+        onUnavailable: () -> Unit = {},
+    ) {
+        onUnavailable()
+    }
+
     fun consumeTrial(): Duration?
 
     override fun dump(writer: PrintWriter, prefix: CharSequence) {

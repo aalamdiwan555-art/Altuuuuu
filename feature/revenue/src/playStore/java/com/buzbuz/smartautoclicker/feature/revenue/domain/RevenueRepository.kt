@@ -30,6 +30,7 @@ import com.buzbuz.smartautoclicker.core.common.quality.domain.QualityRepository
 import com.buzbuz.smartautoclicker.feature.revenue.UserBillingState
 import com.buzbuz.smartautoclicker.feature.revenue.UserConsentState
 import com.buzbuz.smartautoclicker.feature.revenue.data.ads.InterstitialAdsDataSource
+import com.buzbuz.smartautoclicker.feature.revenue.data.ads.RewardedAdsDataSource
 import com.buzbuz.smartautoclicker.feature.revenue.data.ads.RemoteAdState
 import com.buzbuz.smartautoclicker.feature.revenue.data.UserConsentDataSource
 import com.buzbuz.smartautoclicker.feature.revenue.data.billing.InAppPurchaseState
@@ -73,6 +74,7 @@ internal class RevenueRepository @Inject constructor(
     @Dispatcher(HiltCoroutineDispatchers.IO) ioDispatcher: CoroutineDispatcher,
     private val userConsentDataSource: UserConsentDataSource,
     private val adsDataSource: InterstitialAdsDataSource,
+    private val rewardedAdsDataSource: RewardedAdsDataSource,
     private val billingDataSource: BillingDataSource,
     qualityRepository: QualityRepository,
 ): InternalRevenueRepository {
@@ -152,6 +154,15 @@ internal class RevenueRepository @Inject constructor(
     override fun loadAdIfNeeded(context: Context) {
         if (userBillingState.value != UserBillingState.AD_REQUESTED) return
         adsDataSource.loadAd(context)
+        rewardedAdsDataSource.load(context)
+    }
+
+    override fun showRewardedAd(
+        activity: Activity,
+        onRewarded: () -> Unit,
+        onUnavailable: () -> Unit,
+    ) {
+        rewardedAdsDataSource.show(activity, onRewarded, onUnavailable)
     }
 
     override fun startPaywallUiFlow(context: Context) {

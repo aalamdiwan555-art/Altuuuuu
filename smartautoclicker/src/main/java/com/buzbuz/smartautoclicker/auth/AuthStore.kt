@@ -46,12 +46,16 @@ internal class AuthStore(context: Context) {
             .putString(KEY_PROFILE_EMAIL, profile.email)
             .putString(KEY_PROFILE_APPROVAL_STATUS, profile.approvalStatus.name)
             .putString(KEY_PROFILE_SUBSCRIPTION_PLAN, profile.subscriptionPlan.name)
+            .putInt(KEY_PROFILE_REWARDED_ADS_WATCHED, profile.rewardedAdsWatched)
+            .putBoolean(KEY_PROFILE_AD_FREE_OVERRIDE, profile.adFreeOverride)
             .putBoolean(KEY_PROFILE_IS_ADMIN, profile.isAdmin)
             .apply {
                 if (profile.subscriptionDays == null) remove(KEY_PROFILE_SUBSCRIPTION_DAYS)
                 else putInt(KEY_PROFILE_SUBSCRIPTION_DAYS, profile.subscriptionDays)
                 if (profile.subscriptionExpiresAt == null) remove(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT)
                 else putLong(KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT, profile.subscriptionExpiresAt)
+                if (profile.rewardedSubscriptionExpiresAt == null) remove(KEY_PROFILE_REWARDED_SUBSCRIPTION_EXPIRES_AT)
+                else putLong(KEY_PROFILE_REWARDED_SUBSCRIPTION_EXPIRES_AT, profile.rewardedSubscriptionExpiresAt)
             }
             .commit()
     }
@@ -69,6 +73,10 @@ internal class AuthStore(context: Context) {
         } else {
             null
         }
+        val rewardedSubscriptionExpiresAt =
+            if (preferences.contains(KEY_PROFILE_REWARDED_SUBSCRIPTION_EXPIRES_AT)) {
+                preferences.getLong(KEY_PROFILE_REWARDED_SUBSCRIPTION_EXPIRES_AT, 0L)
+            } else null
         return UserProfile(
             id = id,
             email = preferences.getString(KEY_PROFILE_EMAIL, "").orEmpty(),
@@ -80,6 +88,9 @@ internal class AuthStore(context: Context) {
             ),
             subscriptionDays = subscriptionDays,
             subscriptionExpiresAt = subscriptionExpiresAt,
+            rewardedAdsWatched = preferences.getInt(KEY_PROFILE_REWARDED_ADS_WATCHED, 0),
+            rewardedSubscriptionExpiresAt = rewardedSubscriptionExpiresAt,
+            adFreeOverride = preferences.getBoolean(KEY_PROFILE_AD_FREE_OVERRIDE, false),
             isAdmin = preferences.getBoolean(KEY_PROFILE_IS_ADMIN, false),
         )
     }
@@ -111,6 +122,9 @@ internal class AuthStore(context: Context) {
         const val KEY_PROFILE_SUBSCRIPTION_PLAN = "profile_subscription_plan"
         const val KEY_PROFILE_SUBSCRIPTION_DAYS = "profile_subscription_days"
         const val KEY_PROFILE_SUBSCRIPTION_EXPIRES_AT = "profile_subscription_expires_at"
+        const val KEY_PROFILE_REWARDED_ADS_WATCHED = "profile_rewarded_ads_watched"
+        const val KEY_PROFILE_REWARDED_SUBSCRIPTION_EXPIRES_AT = "profile_rewarded_subscription_expires_at"
+        const val KEY_PROFILE_AD_FREE_OVERRIDE = "profile_ad_free_override"
         const val KEY_PROFILE_IS_ADMIN = "profile_is_admin"
     }
 }

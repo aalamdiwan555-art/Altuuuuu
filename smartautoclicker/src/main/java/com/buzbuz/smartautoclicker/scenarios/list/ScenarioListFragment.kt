@@ -43,6 +43,8 @@ import com.buzbuz.smartautoclicker.core.common.navigation.getTutorialNavigator
 import com.buzbuz.smartautoclicker.core.ui.utils.getDynamicColorsContext
 import com.buzbuz.smartautoclicker.databinding.DialogImportExportBinding
 import com.buzbuz.smartautoclicker.databinding.FragmentScenariosBinding
+import com.buzbuz.smartautoclicker.auth.SupabaseAuthRepository
+import com.buzbuz.smartautoclicker.feature.revenue.IRevenueRepository
 import com.buzbuz.smartautoclicker.feature.backup.ui.BackupDialogFragment
 import com.buzbuz.smartautoclicker.feature.backup.ui.BackupDialogFragment.Companion.FRAGMENT_TAG_BACKUP_DIALOG
 import com.buzbuz.smartautoclicker.scenarios.migration.ConditionsMigrationFragment
@@ -58,6 +60,7 @@ import com.buzbuz.smartautoclicker.settings.SettingsActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.shape.MaterialShapeDrawable
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 import kotlinx.coroutines.launch
 
@@ -67,6 +70,8 @@ import kotlinx.coroutines.launch
  */
 @AndroidEntryPoint
 class ScenarioListFragment : Fragment() {
+
+    @Inject lateinit var revenueRepository: IRevenueRepository
 
     interface Listener {
         fun startScenario(item: ScenarioListUiState.Item.ScenarioItem)
@@ -83,6 +88,7 @@ class ScenarioListFragment : Fragment() {
     private lateinit var viewBinding: FragmentScenariosBinding
     /** Adapter displaying the click scenarios as a list. */
     private lateinit var scenariosAdapter: ScenarioAdapter
+    private lateinit var authRepository: SupabaseAuthRepository
 
 
     /** The current dialog being displayed. Null if not displayed. */
@@ -112,6 +118,7 @@ class ScenarioListFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        authRepository = SupabaseAuthRepository(requireContext())
 
         viewBinding.apply {
             list.adapter = scenariosAdapter
@@ -122,6 +129,7 @@ class ScenarioListFragment : Fragment() {
             appBarLayout.statusBarForeground = MaterialShapeDrawable.createWithElevationOverlay(context)
 
             topAppBar.setOnMenuItemClickListener { onMenuItemSelected(it) }
+            watchSubscription.setOnClickListener { showRewardedSubscriptionAd() }
 
             val fabHorizontalMarginInset = resources.getDimensionPixelSize(R.dimen.margin_horizontal_mini)
             val fabHorizontalMargin = resources.getDimensionPixelSize(R.dimen.margin_horizontal_large)
@@ -132,6 +140,8 @@ class ScenarioListFragment : Fragment() {
                 marginIfNot =  Rect(fabHorizontalMargin, 0, fabHorizontalMargin, fabBottomMargin),
             )
         }
+        updateRewardedSubscriptionCta()
+        revenueRepository.loadAdIfNeeded(requireContext())
 
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -139,6 +149,52 @@ class ScenarioListFragment : Fragment() {
                 launch { scenarioListViewModel.needsConditionMigration.collect(::onConditionMigrationRequired) }
             }
         }
+    }
+
+    private fun updateRewardedSubscriptionCta() {
+        val profile = authRepository.cachedProfile()
+        viewBinding.watchSubscription.visibility =
+            if (profile?.approvalStatus == com.buzbuz.smartautoclicker.auth.ApprovalStatus.APPROVED &&
+                profile.hasActiveSubscription().not()
+            ) View.VISIBLE else View.GONE
+    }
+
+    private fun showRewardedSubscriptionAd() {
+        viewBinding.watchSubscription.isEnabled = false
+        revenueRepository.showRewardedAd(
+            activity = requireActivity(),
+            onRewarded = {
+                lifecycleScope.launch {
+                    runCatching { authRepository.claimRewardedAd() }
+                        .onSuccess { profile ->
+                            viewBinding.watchSubscription.isEnabled = true
+                            updateRewardedSubscriptionCta()
+                            val remaining = 20 - (profile.rewardedAdsWatched % 20)
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                if (remaining == 20) "Subscription day unlocked" else "$remaining rewarded ads to unlock 1 day",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                        .onFailure {
+                            viewBinding.watchSubscription.isEnabled = true
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                it.message ?: "Unable to record rewarded ad",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                }
+            },
+            onUnavailable = {
+                viewBinding.watchSubscription.isEnabled = true
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "Rewarded ad is loading. Please try again.",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            },
+        )
     }
 
     private fun onMenuItemSelected(item: MenuItem): Boolean {

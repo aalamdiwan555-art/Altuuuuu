@@ -280,6 +280,27 @@ class AdminActivity : AppCompatActivity() {
             weightedButtonParams(),
         )
 
+        actions.addView(
+            Button(this).apply {
+                text = if (profile.adFreeOverride) "Remove ad-free" else "Grant ad-free"
+                isAllCaps = false
+                setOnClickListener {
+                    isEnabled = false
+                    lifecycleScope.launch {
+                        suspendRunCatching {
+                            repository.setAdFreeOverride(profile.id, !profile.adFreeOverride)
+                        }
+                            .onSuccess { loadUsers() }
+                            .onFailure {
+                                isEnabled = true
+                                showError(it)
+                            }
+                    }
+                }
+            },
+            weightedButtonParams(),
+        )
+
         cardContent.addView(actions, params(12))
 
         val card = MaterialCardView(this).apply {

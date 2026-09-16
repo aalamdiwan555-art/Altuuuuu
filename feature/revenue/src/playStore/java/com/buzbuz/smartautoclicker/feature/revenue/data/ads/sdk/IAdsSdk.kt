@@ -19,6 +19,7 @@ package com.buzbuz.smartautoclicker.feature.revenue.data.ads.sdk
 import android.app.Activity
 import android.content.Context
 import androidx.annotation.MainThread
+import com.google.android.gms.ads.rewarded.RewardItem
 
 
 internal interface IAdsSdk {
@@ -41,6 +42,21 @@ internal interface IAdsSdk {
         activity: Activity,
         onShow: () -> Unit,
         onDismiss: (impression: Boolean) -> Unit,
+        onError: (code: Int, message: String) -> Unit,
+    )
+
+    @MainThread
+    fun loadRewardedAd(
+        context: Context,
+        onLoaded: () -> Unit,
+        onError: (code: Int, message: String) -> Unit,
+    )
+
+    @MainThread
+    fun showRewardedAd(
+        activity: Activity,
+        onRewarded: (RewardItem) -> Unit,
+        onDismiss: () -> Unit,
         onError: (code: Int, message: String) -> Unit,
     )
 }

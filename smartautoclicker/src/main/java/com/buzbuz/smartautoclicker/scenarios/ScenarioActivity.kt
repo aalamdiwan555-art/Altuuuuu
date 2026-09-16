@@ -30,6 +30,7 @@ import androidx.lifecycle.lifecycleScope
 
 import com.buzbuz.smartautoclicker.R
 import com.buzbuz.smartautoclicker.auth.AdminActivity
+import com.buzbuz.smartautoclicker.auth.ApprovalStatus
 import com.buzbuz.smartautoclicker.auth.AuthException
 import com.buzbuz.smartautoclicker.auth.AuthActivity
 import com.buzbuz.smartautoclicker.auth.SubscriptionPlan
@@ -108,7 +109,7 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
                 finish()
                 return@launch
             }
-            if (profile?.hasActiveSubscription() != true) {
+            if (profile?.approvalStatus != ApprovalStatus.APPROVED) {
                 startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))
                 finish()
                 return@launch
@@ -164,9 +165,11 @@ class ScenarioActivity : AppCompatActivity(), ScenarioListFragment.Listener {
                 }
             }
             if (profile?.hasActiveSubscription() != true) {
-                Toast.makeText(this@ScenarioActivity, R.string.auth_expired_title, Toast.LENGTH_LONG).show()
-                startActivity(Intent(this@ScenarioActivity, AuthActivity::class.java))
-                finish()
+                Toast.makeText(
+                    this@ScenarioActivity,
+                    "Watch rewarded ads on the home screen to unlock access.",
+                    Toast.LENGTH_LONG,
+                ).show()
                 return@launch
             }
 

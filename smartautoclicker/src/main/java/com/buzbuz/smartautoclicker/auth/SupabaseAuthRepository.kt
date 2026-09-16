@@ -73,7 +73,7 @@ internal class SupabaseAuthRepository(context: Context) {
 
         val encodedId = URLEncoder.encode(userId, Charsets.UTF_8.name())
         val profiles = requestProfileRows(
-            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&id=eq.$encodedId&limit=1",
+            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,rewarded_ads_watched,rewarded_subscription_expires_at,ad_free_override,is_admin&id=eq.$encodedId&limit=1",
             withSessionRefresh = true,
         )
         val profile = profiles.optJSONArray("data")?.optJSONObject(0)
@@ -86,6 +86,30 @@ internal class SupabaseAuthRepository(context: Context) {
 
     suspend fun hasActiveSubscription(): Boolean =
         loadCurrentProfile()?.hasActiveSubscription() == true
+
+    suspend fun claimRewardedAd(): UserProfile = withContext(Dispatchers.IO) {
+        val response = requestWithSessionRefresh(
+            path = "/rest/v1/rpc/claim_rewarded_ad",
+            method = "POST",
+            body = "{}",
+        )
+        (response.optJSONArray("data")?.optJSONObject(0) ?: response)
+            .toUserProfile(fallbackEmail = store.cachedProfile()?.email.orEmpty())
+            .also(store::saveProfile)
+    }
+
+    suspend fun setAdFreeOverride(userId: String, enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            requestWithSessionRefresh(
+                path = "/rest/v1/rpc/admin_set_ad_free",
+                method = "POST",
+                body = JSONObject()
+                    .put("target_user_id", userId)
+                    .put("enabled", enabled)
+                    .toString(),
+            )
+        }
+    }
 
     suspend fun approveUser(userId: String, plan: SubscriptionPlan, customDays: Int? = null) {
         withContext(Dispatchers.IO) {
@@ -113,7 +137,7 @@ internal class SupabaseAuthRepository(context: Context) {
 
     suspend fun loadUsersForAdmin(): List<UserProfile> = withContext(Dispatchers.IO) {
         val profiles = requestProfileRows(
-            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,is_admin&is_admin=eq.false&order=created_at.desc",
+            path = "/rest/v1/profiles?select=id,email,approval_status,subscription_plan,subscription_days,subscription_expires_at,rewarded_ads_watched,rewarded_subscription_expires_at,ad_free_override,is_admin&is_admin=eq.false&order=created_at.desc",
             withSessionRefresh = true,
         )
         val rows = profiles.optJSONArray("data") ?: JSONArray()
@@ -305,5 +329,8 @@ private fun JSONObject.toUserProfile(
             null
         },
         subscriptionExpiresAt = parseIsoTimestamp(optString("subscription_expires_at")),
+        rewardedAdsWatched = optInt("rewarded_ads_watched", 0),
+        rewardedSubscriptionExpiresAt = parseIsoTimestamp(optString("rewarded_subscription_expires_at")),
+        adFreeOverride = optBoolean("ad_free_override", false),
         isAdmin = optBoolean("is_admin", false),
     )

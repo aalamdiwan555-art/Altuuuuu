@@ -42,12 +42,17 @@ data class UserProfile(
     val subscriptionPlan: SubscriptionPlan,
     val subscriptionDays: Int?,
     val subscriptionExpiresAt: Long?,
+    val rewardedAdsWatched: Int,
+    val rewardedSubscriptionExpiresAt: Long?,
+    val adFreeOverride: Boolean,
     val isAdmin: Boolean,
 ) {
     fun hasActiveSubscription(now: Long = System.currentTimeMillis()): Boolean =
         approvalStatus == ApprovalStatus.APPROVED &&
-            (subscriptionPlan == SubscriptionPlan.LIFETIME ||
+            (adFreeOverride ||
+                subscriptionPlan == SubscriptionPlan.LIFETIME ||
                 (subscriptionExpiresAt != null && subscriptionExpiresAt > now))
+                || (rewardedSubscriptionExpiresAt != null && rewardedSubscriptionExpiresAt > now)
 }
 
 internal fun parseIsoTimestamp(value: String?): Long? {
